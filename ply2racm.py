@@ -20,8 +20,8 @@ def ply2racm(ply_filename, racm_filename, cluster_size=200):
 
             # Calculating the bounding box
             if bb_min is None:
-                bb_min = vertex[v_id][:]
-                bb_max = vertex[v_id][:]
+                bb_min = vertex[v_id][:3]
+                bb_max = vertex[v_id][:3]
             
             if bb_min[0] > vertex[v_id][0]:
                 bb_min[0] = vertex[v_id][0]
@@ -58,8 +58,28 @@ def ply2racm(ply_filename, racm_filename, cluster_size=200):
 
     print n_faces, n_vertex, bb_min, bb_max
     # Writing to racm file
+    working_vertex = []
+    last_vertex = 0
     with file(racm_filename, 'w') as racm_file:
-        pass
+        racm_file.write('header\n')
+        racm_file.write('bb_min: %s\n' % ','.join([str(i) for i in bb_min]))
+        racm_file.write('bb_max: %s\n' % ','.join([str(i) for i in bb_max]))
+        racm_file.write('end header\n')
+
+        for face in sorted(faces):
+            vertices = faces[face]
+            if last_vertex != max(vertices):
+                for v in xrange(last_vertex, max(vertices)+1):
+                    racm_file.write('v %s\n' % ','.join([str(i) for i in vertex[v][:3]]))
+                    working_vertex.append(v)
+                last_vertex = max(vertices)
+
+            for v in vertices:
+                vertex[v][3] -= 1
+
+            racm_file.write('f %s\n' % ','.join([str(i if vertex[i][3] > 0 else -i) for i in vertices]))
+
+
 
 def main():
     import sys
