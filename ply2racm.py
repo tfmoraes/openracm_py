@@ -66,7 +66,8 @@ def ply2racm(ply_filename, racm_filename, cluster_size=200):
             for v in face_vertices:
                 vertices[v][3] -= 1
 
-            racm_file.write('f %s\n' % ','.join([str(i if vertices[i][3] > 0 else -i) for i in face_vertices]))
+            racm_file.write('f %s\n' % ','.join([str(i) if vertices[i][3] > 0
+                                                 else '-%d' % i for i in face_vertices]))
 
 
 
