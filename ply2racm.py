@@ -45,7 +45,7 @@ def ply2racm(ply_filename, racm_filename, cluster_size=200):
 
     # Writing to racm file
     working_vertex = []
-    last_vertex = 0
+    last_vertex = -1
     with file(racm_filename, 'w') as racm_file:
         racm_file.write('header\n')
         racm_file.write('vertex %d\n' % n_vertex)
@@ -57,8 +57,8 @@ def ply2racm(ply_filename, racm_filename, cluster_size=200):
         for face in sorted(faces):
             face_vertices = faces[face]
             max_vertex = max(face_vertices)
-            if last_vertex != max_vertex:
-                for v in xrange(last_vertex, max_vertex+1):
+            if last_vertex < max_vertex:
+                for v in xrange(last_vertex+1, max_vertex+1):
                     racm_file.write('v %s\n' % ','.join([str(i) for i in vertices[v][:3]]))
                     working_vertex.append(v)
                 last_vertex = max_vertex
