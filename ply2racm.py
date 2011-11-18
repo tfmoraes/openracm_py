@@ -16,7 +16,6 @@ def ply2racm(ply_filename, racm_filename, cluster_size=200):
         bb_max = None
         for line in ply_file:
             vertex[v_id] = [float(v) for v in line.split()] + [0,]
-            print v_id, line
 
             # Calculating the bounding box
             if bb_min is None:
@@ -62,6 +61,8 @@ def ply2racm(ply_filename, racm_filename, cluster_size=200):
     last_vertex = 0
     with file(racm_filename, 'w') as racm_file:
         racm_file.write('header\n')
+        racm_file.write('vertex %d\n' % n_vertex)
+        racm_file.write('faces %d\n' % n_faces)
         racm_file.write('bb_min: %s\n' % ','.join([str(i) for i in bb_min]))
         racm_file.write('bb_max: %s\n' % ','.join([str(i) for i in bb_max]))
         racm_file.write('end header\n')
