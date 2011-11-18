@@ -15,31 +15,17 @@ def ply2racm(ply_filename, racm_filename, cluster_size=200):
         bb_min = None
         bb_max = None
         for line in ply_file:
-            vertex[v_id] = [float(v) for v in line.split()] + [0,]
+            current_vertex = [float(v) for v in line.split()][:3]
+            vertex[v_id] = current_vertex[:] + [0,]
 
             # Calculating the bounding box
-            if bb_min is None:
-                bb_min = vertex[v_id][:3]
-                bb_max = vertex[v_id][:3]
+            if v_id == 0:
+                bb_min = current_vertex[:]
+                bb_max = current_vertex[:]
+            else:
+                bb_min = [min(cv, bm) for cv,bm in zip(current_vertex, bb_min)]
+                bb_max = [max(cv, bm) for cv,bm in zip(current_vertex, bb_max)]
             
-            if bb_min[0] > vertex[v_id][0]:
-                bb_min[0] = vertex[v_id][0]
-
-            if bb_min[1] > vertex[v_id][1]:
-                bb_min[1] = vertex[v_id][1]
-
-            if bb_min[2] > vertex[v_id][2]:
-                bb_min[2] = vertex[v_id][2]
-
-            if bb_max[0] < vertex[v_id][0]:
-                bb_max[0] = vertex[v_id][0]
-
-            if bb_max[1] < vertex[v_id][1]:
-                bb_max[1] = vertex[v_id][1]
-
-            if bb_max[2] < vertex[v_id][2]:
-                bb_max[2] = vertex[v_id][2]
-
             v_id += 1
             if v_id == n_vertex:
                 break
