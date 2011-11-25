@@ -1,3 +1,9 @@
+def computeO(vertices, faces, vertices_faces):
+    O = []
+    for i in xrange(len(faces)):
+        O[i] = -1
+
+
 def ply2racm(ply_filename, racm_filename, cluster_size=200):
     with open(ply_filename, 'r') as ply_file:
         for line in ply_file:
@@ -32,16 +38,23 @@ def ply2racm(ply_filename, racm_filename, cluster_size=200):
 
         # reading faces
         faces = {}
+        vertices_faces = {}
         f_id = 0
         for line in ply_file:
             faces[f_id] = [int(v) for v in line.split()][1:4]
             for v in faces[f_id]:
                 vertices[v][-1] += 1
+                try:
+                    vertices_faces[v].append(f_id)
+                except KeyError:
+                    vertices_faces[v] = [f_id,]
             f_id += 1
             if f_id == n_faces:
                 break
 
     print n_faces, n_vertex, bb_min, bb_max
+    #print vertices_faces
+    print set(vertices_faces[faces[40896][0]]) & set(vertices_faces[faces[40896][1]])
 
     # Writing to racm file
     working_vertex = []
