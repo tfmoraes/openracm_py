@@ -1,7 +1,44 @@
-def computeO(vertices, faces, vertices_faces):
+def get_triangle(V, v_id):
+    return v_id / 3
+
+def next_corner(V, v_id):
+    return 3 * get_triangle(V, v_id) + ((v_id + 1) % 3)
+
+def previous_corner(V, v_id):
+    return next_corner(V, next_corner(V, v_id))
+
+def computeO(V, vertices, faces, vertices_faces):
     O = []
-    for i in xrange(len(faces)):
-        O[i] = -1
+    for i in xrange(len(V)):
+        O.append(-1)
+    for v_id in xrange(len(V)):
+        t = get_triangle(V, v_id)
+        c0 = next_corner(V, v_id)
+        c1 = previous_corner(V, v_id)
+        v0 = V[c0]
+        v1 = V[c1]
+        f = set(vertices_faces[v0]) & set(vertices_faces[v1])
+        f0, f1 = f
+        if t == f0:
+            oface = faces[f1]
+        elif t == f1:
+            oface = faces[f0]
+        else:
+            raise("Error")
+        for vertex in oface:
+            if not vertex in (v0, v1):
+                O[v_id] = vertex
+                break
+    return O
+
+
+def computeV(vertices, faces, vertices_faces):
+    V = []
+    v_id = 0
+    for face in sorted(faces):
+        for vertex in faces[face]:
+            V.append(vertex)
+    return V
 
 
 def ply2racm(ply_filename, racm_filename, cluster_size=200):
@@ -21,7 +58,7 @@ def ply2racm(ply_filename, racm_filename, cluster_size=200):
         bb_min = None
         bb_max = None
         for line in ply_file:
-            current_vertex = [float(v) for v in line.split()][:3]
+            current_vertex = [float(v.replace(',', '.')) for v in line.split()][:3]
             vertices[v_id] = current_vertex[:] + [0,]
 
             # Calculating the bounding box
@@ -53,8 +90,11 @@ def ply2racm(ply_filename, racm_filename, cluster_size=200):
                 break
 
     print n_faces, n_vertex, bb_min, bb_max
-    #print vertices_faces
-    print set(vertices_faces[faces[40896][0]]) & set(vertices_faces[faces[40896][1]])
+
+    V = computeV(vertices, faces, vertices_faces)
+    O = computeO(V, vertices, faces, vertices_faces)
+
+    print O
 
     # Writing to racm file
     working_vertex = []
