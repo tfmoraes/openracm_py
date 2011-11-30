@@ -7,25 +7,24 @@ class CornerTable(object):
         self.O = []
 
     def create_corner_from_vertex_face(self, vertices, faces, vertices_faces):
-        self._compute_V(vertices, faces)
+        self._compute_V(faces)
         self._compute_O(vertices, faces, vertices_faces)
 
-    def _compute_V(faces):
+    def _compute_V(self, faces):
         for face in sorted(faces):
             for vertex in faces[face]:
                 self.V.append(vertex)
-        return V
 
-    def compute_O(self, vertices, faces, vertices_faces):
+    def _compute_O(self, vertices, faces, vertices_faces):
         for i in xrange(len(self.V)):
-            O.append(-1)
+            self.O.append(-1)
 
-        for c_id in xrange(len(V)):
+        for c_id in xrange(len(self.V)):
             t = self.get_triangle(c_id)
             cn = self.next_corner(c_id)
             cp = self.previous_corner(c_id)
-            v0 = V[cn]
-            v1 = V[cp]
+            v0 = self.V[cn]
+            v1 = self.V[cp]
 
             # Getting the faces which share a vertex
             f = set(vertices_faces[v0]) & set(vertices_faces[v1])
@@ -40,17 +39,16 @@ class CornerTable(object):
                 raise("Error")
 
             for n, c in enumerate(self.iterate_triangle_corner(oface)):
-                if self.V[c] not in (self.V[c0], self.V[c1]):
+                if self.V[c] not in (self.V[cn], self.V[cp]):
                     self.O[c_id] = c
                     print t, self.V[c_id], oface, self.V[c]
                     break
-        return O
 
     def get_triangle(self, c_id):
         return c_id / 3
 
     def get_corner(self, t_id):
-        return f_id * 3
+        return t_id * 3
 
     def next_corner(self, c_id):
         return 3 * self.get_triangle(c_id) + ((c_id + 1) % 3)
