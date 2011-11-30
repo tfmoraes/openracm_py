@@ -1,11 +1,20 @@
 def get_triangle(V, v_id):
     return v_id / 3
 
+def get_corner(f_id):
+    return f_id * 3
+
 def next_corner(V, v_id):
     return 3 * get_triangle(V, v_id) + ((v_id + 1) % 3)
 
 def previous_corner(V, v_id):
     return next_corner(V, next_corner(V, v_id))
+
+def iterate_triangle_corner(V, f_id):
+    corner = get_corner(f_id)
+    yield corner
+    yield next_corner(V, corner)
+    yield previous_corner(V, corner)
 
 def computeO(V, vertices, faces, vertices_faces):
     O = []
@@ -18,17 +27,28 @@ def computeO(V, vertices, faces, vertices_faces):
         v0 = V[c0]
         v1 = V[c1]
         f = set(vertices_faces[v0]) & set(vertices_faces[v1])
+        if len(f) != 2:
+            raise("Error")
         f0, f1 = f
         if t == f0:
-            oface = faces[f1]
+            oface = f1
         elif t == f1:
-            oface = faces[f0]
+            oface = f0
         else:
             raise("Error")
-        for vertex in oface:
-            if not vertex in (v0, v1):
-                O[v_id] = vertex
+
+        for n,c in enumerate(iterate_triangle_corner(V, oface)):
+            if V[c] not in (V[c0], V[c1]):
+                O[v_id] = c
+                print t, V[v_id], oface, V[c]
                 break
+
+        #for vertex in oface:
+            #if not vertex in (v0, v1):
+                #O[v_id] = vertex
+                #break
+
+        
     return O
 
 
@@ -94,7 +114,9 @@ def ply2racm(ply_filename, racm_filename, cluster_size=200):
     V = computeV(vertices, faces, vertices_faces)
     O = computeO(V, vertices, faces, vertices_faces)
 
-    print O
+    print [V[i] for i in O]
+    print 
+    print [(n, get_triangle(V, n), V[i]) for n, i in enumerate(O)]
 
     # Writing to racm file
     working_vertex = []
