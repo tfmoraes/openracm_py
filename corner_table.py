@@ -7,6 +7,7 @@ class CornerTable(object):
         self.O = []
 
     def create_corner_from_vertex_face(self, vertices, faces, vertices_faces):
+        self.vertices = vertices
         self._compute_V(faces)
         self._compute_O(vertices, faces, vertices_faces)
 
@@ -43,6 +44,9 @@ class CornerTable(object):
                     self.O[c_id] = c
                     print t, self.V[c_id], oface, self.V[c]
                     break
+
+    def get_vertex(self, c_id):
+        return self.V[c_id]
 
     def get_triangle(self, c_id):
         return c_id / 3
