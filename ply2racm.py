@@ -1,65 +1,7 @@
-def get_triangle(V, v_id):
-    return v_id / 3
+#!/usr/bin/env python
+# -*- coding: UTF-8 -*-
 
-def get_corner(f_id):
-    return f_id * 3
-
-def next_corner(V, v_id):
-    return 3 * get_triangle(V, v_id) + ((v_id + 1) % 3)
-
-def previous_corner(V, v_id):
-    return next_corner(V, next_corner(V, v_id))
-
-def iterate_triangle_corner(V, f_id):
-    corner = get_corner(f_id)
-    yield corner
-    yield next_corner(V, corner)
-    yield previous_corner(V, corner)
-
-def computeO(V, vertices, faces, vertices_faces):
-    O = []
-    for i in xrange(len(V)):
-        O.append(-1)
-    for v_id in xrange(len(V)):
-        t = get_triangle(V, v_id)
-        c0 = next_corner(V, v_id)
-        c1 = previous_corner(V, v_id)
-        v0 = V[c0]
-        v1 = V[c1]
-        f = set(vertices_faces[v0]) & set(vertices_faces[v1])
-        if len(f) != 2:
-            raise("Error")
-        f0, f1 = f
-        if t == f0:
-            oface = f1
-        elif t == f1:
-            oface = f0
-        else:
-            raise("Error")
-
-        for n,c in enumerate(iterate_triangle_corner(V, oface)):
-            if V[c] not in (V[c0], V[c1]):
-                O[v_id] = c
-                print t, V[v_id], oface, V[c]
-                break
-
-        #for vertex in oface:
-            #if not vertex in (v0, v1):
-                #O[v_id] = vertex
-                #break
-
-        
-    return O
-
-
-def computeV(vertices, faces, vertices_faces):
-    V = []
-    v_id = 0
-    for face in sorted(faces):
-        for vertex in faces[face]:
-            V.append(vertex)
-    return V
-
+import corner_table
 
 def ply2racm(ply_filename, racm_filename, cluster_size=200):
     with open(ply_filename, 'r') as ply_file:
@@ -111,12 +53,12 @@ def ply2racm(ply_filename, racm_filename, cluster_size=200):
 
     print n_faces, n_vertex, bb_min, bb_max
 
-    V = computeV(vertices, faces, vertices_faces)
-    O = computeO(V, vertices, faces, vertices_faces)
+    ct = corner_table.CornerTable()
+    ct.create_corner_from_vertex_face(vertices, faces, vertices_faces)
 
-    print [V[i] for i in O]
-    print 
-    print [(n, get_triangle(V, n), V[i]) for n, i in enumerate(O)]
+    #print [ct.V[i] for i in ct.O]
+    #print 
+    #print [(n, get_triangle(V, n), V[i]) for n, i in enumerate(O)]
 
     # Writing to racm file
     working_vertex = []
