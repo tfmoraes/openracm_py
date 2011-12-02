@@ -46,6 +46,7 @@ def taubin_smooth(ct, l, m, steps):
             d = D[v]
             ct.vertices[v] = [x + l*y for x,y in zip(vp, d)]
 
+        visited = {}
         D = {}
         for c_id in xrange(len(ct.V)):
             v = ct.V[c_id]
