@@ -46,7 +46,7 @@ class CornerTable(object):
                     break
 
     def get_vertex(self, c_id):
-        return self.V[c_id]
+        return self.vertices[self.V[c_id]]
 
     def get_triangle(self, c_id):
         return c_id / 3
@@ -65,3 +65,15 @@ class CornerTable(object):
         yield corner
         yield self.next_corner(corner)
         yield self.previous_corner(corner)
+
+    def get_oposite_corner(self, c_id):
+        return self.O[c_id]
+
+    def get_left_corner(self, c_id):
+        return self.get_oposite_corner(self.next_corner(c_id))
+
+    def get_right_corner(self, c_id):
+        return self.get_oposite_corner(self.previous_corner(c_id))
+
+    def swing(self, c_id):
+        return self.next_corner(self.get_left_corner(c_id))
