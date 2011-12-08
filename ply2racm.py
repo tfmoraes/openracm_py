@@ -2,6 +2,7 @@
 # -*- coding: UTF-8 -*-
 
 import corner_table
+import ply_writer
 
 def calculate_d(ct, c_id):
     t = [0.0, 0.0, 0.0]
@@ -115,27 +116,8 @@ def ply2racm(ply_filename, racm_filename, cluster_size=200):
     taubin_smooth(ct, 0.5, -0.53, 10)
 
     #writing a output ply from taubin smooth algorithm
-    with file(racm_filename, 'w') as racm_file:
-        racm_file.write('ply\n')
-        racm_file.write('format ascii 1.0\n')
-        racm_file.write('element vertex %d\n' % len(ct.vertices))
-        racm_file.write('property float x\n')
-        racm_file.write('property float y\n')
-        racm_file.write('property float z\n')
-        racm_file.write('element face %d\n' % (len(ct.V)/3))
-        racm_file.write('property list uchar int vertex_indices\n')
-        racm_file.write('end_header\n')
-
-        for v in ct.vertices.values():
-            racm_file.write(' '.join(['%f' % i for i in v]) + '\n')
-
-        for c_id in xrange(0, len(ct.V), 3):
-            cn = ct.next_corner(c_id)
-            cp = ct.previous_corner(c_id)
-            racm_file.write('3 %d %d %d\n' % (ct.V[c_id], ct.V[cn], ct.V[cp]))
-
-
-
+    writer = ply_writer.PlyWriter(racm_filename)
+    writer.from_corner_table(ct)
 
     #print [ct.V[i] for i in ct.O]
     #print 
