@@ -2,6 +2,7 @@
 # -*- coding: UTF-8 -*-
 
 import corner_table
+import ply_reader
 import ply_writer
 
 def calculate_d(ct, c_id):
@@ -61,23 +62,17 @@ def taubin_smooth(ct, l, m, steps):
 
 
 def ply2racm(ply_filename, racm_filename, cluster_size=200):
-    with open(ply_filename, 'r') as ply_file:
-        for line in ply_file:
-            # reading header
-            if line.startswith('element vertex'):
-                n_vertex = int(line.split()[2])
-            elif line.startswith('element face'):
-                n_faces = int(line.split()[2])
-            elif line.startswith('end_header'):
-                break
-
-        # reading vertex
-        vertices = {}
-        v_id = 0
-        bb_min = None
-        bb_max = None
-        for line in ply_file:
-            current_vertex = [float(v.replace(',', '.')) for v in line.split()][:3]
+    vertices = {}
+    faces = {}
+    vertices_faces = {}
+    bb_min = None
+    bb_max = None
+    v_id = 0
+    f_id = 0
+    reader = ply_reader.PlyReader(ply_filename)
+    for evt, data in reader.read():
+        if evt == ply_reader.EVENT_VERTEX:
+            current_vertex = data
             vertices[v_id] = current_vertex[:] + [0,]
 
             # Calculating the bounding box
@@ -87,17 +82,10 @@ def ply2racm(ply_filename, racm_filename, cluster_size=200):
             else:
                 bb_min = [min(cv, bm) for cv,bm in zip(current_vertex, bb_min)]
                 bb_max = [max(cv, bm) for cv,bm in zip(current_vertex, bb_max)]
-            
             v_id += 1
-            if v_id == n_vertex:
-                break
 
-        # reading faces
-        faces = {}
-        vertices_faces = {}
-        f_id = 0
-        for line in ply_file:
-            faces[f_id] = [int(v) for v in line.split()][1:4]
+        elif evt == ply_reader.EVENT_FACE:
+            faces[f_id] = data
             for v in faces[f_id]:
                 vertices[v][-1] += 1
                 try:
@@ -105,10 +93,8 @@ def ply2racm(ply_filename, racm_filename, cluster_size=200):
                 except KeyError:
                     vertices_faces[v] = [f_id,]
             f_id += 1
-            if f_id == n_faces:
-                break
 
-    print n_faces, n_vertex, bb_min, bb_max
+    print bb_min, bb_max
 
     ct = corner_table.CornerTable()
     ct.create_corner_from_vertex_face(vertices, faces, vertices_faces)
