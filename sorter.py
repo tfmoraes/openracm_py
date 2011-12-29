@@ -13,7 +13,7 @@ def _count_degree(ct, v_id):
     d = 2
     while 1:
         cc = ct.swing(cc)
-        nt = ct.get_triangle(sc)
+        nt = ct.get_triangle(cc)
         d += 1
 
         if nt == t:
@@ -37,17 +37,21 @@ def _get_minimun_degree_vertex(ct, v_w):
 
 
 def k_cache_reoder(ct, model=FIFO):
-    v_w = ct.V[:]
+    v_w = ct.vertices.keys()
+    v_w.sort(key=lambda x: _count_degree(ct, x))
+
+    for i in v_w:
+        print i, _count_degree(ct,i)
     v_g = []
     v_b = []
     f_output = []
 
-    while len(v_b) < len(ct.V):
-        if v_g:
-            pass
-        else:
-            vfocus = _get_minimun_degree_vertex(ct, v_w)
-            v_w.pop(vfocus)
+    #while len(v_b) < len(ct.V):
+    #    if v_g:
+    #        pass
+    #    else:
+    #        vfocus = _get_minimun_degree_vertex(ct, v_w)
+    #        v_w.pop(vfocus)
             
          
 

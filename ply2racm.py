@@ -4,6 +4,7 @@
 import corner_table
 import ply_reader
 import ply_writer
+import sorter
 
 def calculate_d(ct, c_id):
     t = [0.0, 0.0, 0.0]
@@ -99,7 +100,9 @@ def ply2racm(ply_filename, racm_filename, cluster_size=200):
     ct = corner_table.CornerTable()
     ct.create_corner_from_vertex_face(vertices, faces, vertices_faces)
 
-    taubin_smooth(ct, 0.5, -0.53, 10)
+    sorter.k_cache_reoder(ct)
+
+    #taubin_smooth(ct, 0.5, -0.53, 10)
 
     #writing a output ply from taubin smooth algorithm
     writer = ply_writer.PlyWriter(racm_filename)

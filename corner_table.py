@@ -16,7 +16,7 @@ class CornerTable(object):
         for face in sorted(faces):
             for vertex in faces[face]:
                 self.V.append(vertex)
-                self.C[vertex] = len(self.V)
+                self.C[vertex] = len(self.V) - 1
 
     def _compute_O(self, vertices, faces, vertices_faces):
         for i in xrange(len(self.V)):
@@ -57,7 +57,7 @@ class CornerTable(object):
         return t_id * 3
 
     def get_corner_v(self, v_id):
-        return C[v_id]
+        return self.C[v_id]
 
     def next_corner(self, c_id):
         return 3 * self.get_triangle(c_id) + ((c_id + 1) % 3)
