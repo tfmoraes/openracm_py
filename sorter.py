@@ -69,6 +69,22 @@ def _get_renderable_faces_in_buffer(ct, v_g):
     return output
 
 
+def _get_unrenderable_faces_in_buffer(ct, v_g, v_w):
+    output = []
+    for v_id in v_g:
+        for t_id in _get_bounding_faces(ct, v_id):
+            for c_id in ct.iterate_triangle_corner(t_id):
+                if ct.get_vertex(c_id) not in v_w:
+                    break
+            else:
+                output.append(t_id)
+    return output
+
+
+def _calc_c2(ct, v_g, v_w):
+    return len(_get_unrenderable_faces_in_buffer(ct, v_g, v_w)
+
+
 def k_cache_reoder(ct, model=FIFO):
     v_w = ct.vertices.keys()
     v_w.sort(key=lambda x: _count_degree(ct, x))
