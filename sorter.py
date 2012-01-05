@@ -82,7 +82,34 @@ def _get_unrenderable_faces_in_buffer(ct, v_g, v_w):
 
 
 def _calc_c2(ct, v_g, v_w):
-    return len(_get_unrenderable_faces_in_buffer(ct, v_g, v_w)
+    return len(_get_unrenderable_faces_in_buffer(ct, v_g, v_w))
+
+
+def _calc_c1_c3(ct, vfocus, v_g, v_w, F_output):
+    v_ws = v_w[:]
+    v_gs = v_g[:]
+    F_output_s = F_output[:]
+    c1 = 0
+    for f in _get_bounding_faces(ct, vfocus):
+        if f in F_output_s:
+            break
+        for vl in _get_white_bounding_vertices(ct, v_ws, f):
+            if len(v_gs) == BUFFER_SIZE:
+                v_gs.pop(0)
+            v_ws.remove(vl)
+            v_gs.append(vl)
+            c += 1
+
+            F_output_s.extend([i for i in _get_renderable_faces_in_buffer(ct, v_gs) if i != f])
+        
+        F_output.append(f)
+
+    v_b.append(v_focus)
+
+    c3 = v_gs.index(vfocus)
+
+    return c1, c3
+
 
 
 def k_cache_reoder(ct, model=FIFO):
