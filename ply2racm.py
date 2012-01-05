@@ -100,7 +100,11 @@ def ply2racm(ply_filename, racm_filename, cluster_size=200):
     ct = corner_table.CornerTable()
     ct.create_corner_from_vertex_face(vertices, faces, vertices_faces)
 
-    sorter.k_cache_reoder(ct)
+    foutput = sorter.k_cache_reorder(ct)
+
+    print faces.keys()
+    print 
+    print foutput
 
     #taubin_smooth(ct, 0.5, -0.53, 10)
 
