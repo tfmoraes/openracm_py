@@ -44,7 +44,6 @@ class CornerTable(object):
             for n, c in enumerate(self.iterate_triangle_corner(oface)):
                 if self.V[c] not in (self.V[cn], self.V[cp]):
                     self.O[c_id] = c
-                    print t, self.V[c_id], oface, self.V[c]
                     break
 
     def get_vertex(self, c_id):
@@ -82,3 +81,21 @@ class CornerTable(object):
 
     def swing(self, c_id):
         return self.next_corner(self.get_left_corner(c_id))
+
+    def get_faces_connected_to_v(self, v_id):
+        c = self.get_corner_v(v_id)
+        ti = self.get_triangle(c)
+        yield ti
+        while 1:
+            c = self.swing(c)
+            t = self.get_triangle(c)
+            if t == ti:
+                break
+            else:
+                yield t
+
+    def get_vertex_degree(self, v_id):
+        degree = 1
+        for f in self.get_faces_connected_to_v(v_id):
+            degree += 1
+        return degree
