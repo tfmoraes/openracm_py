@@ -102,15 +102,16 @@ def ply2racm(ply_filename, racm_filename, cluster_size=200):
 
     foutput = sorter.k_cache_reorder(ct)
 
-    print faces.keys()
+    print len(faces.keys())
     print 
-    print foutput
+    print len(foutput)
 
     #taubin_smooth(ct, 0.5, -0.53, 10)
 
     #writing a output ply from taubin smooth algorithm
     writer = ply_writer.PlyWriter(racm_filename)
-    writer.from_corner_table(ct)
+    writer.from_faces_vertices_list([faces[i] for i in foutput], vertices)
+    #writer.from_corner_table(ct)
 
     #print [ct.V[i] for i in ct.O]
     #print 
