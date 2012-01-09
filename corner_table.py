@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: UTF-8 -*-
 
+import sys
+
 class CornerTable(object):
     def __init__(self):
         self.V = []
@@ -17,6 +19,10 @@ class CornerTable(object):
             for vertex in faces[face]:
                 self.V.append(vertex)
                 self.C[vertex] = len(self.V) - 1
+
+            sys.stdout.write('\rComputing V: %.2f' % ((100.0*face)/(len(faces)-1)))
+            sys.stdout.flush()
+        print 
 
     def _compute_O(self, vertices, faces, vertices_faces):
         for i in xrange(len(self.V)):
@@ -45,6 +51,10 @@ class CornerTable(object):
                 if self.V[c] not in (self.V[cn], self.V[cp]):
                     self.O[c_id] = c
                     break
+
+            sys.stdout.write('\rComputing O: %.2f' % ((100.0*c_id)/(len(self.V)-1)))
+            sys.stdout.flush()
+        print 
 
     def get_vertex(self, c_id):
         return self.vertices[self.V[c_id]]

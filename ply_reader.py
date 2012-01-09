@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: UTF-8 -*-
 
+import sys
+
 EVENT_VERTEX = 1
 EVENT_FACE = 2
 
@@ -25,8 +27,12 @@ class PlyReader(object):
                 vertex = [float(v.replace(',', '.')) for v in line.split()][:3]
                 yield (EVENT_VERTEX, vertex)
                 v_id += 1
+                sys.stdout.write('\rReading Vertices: %.2f%%' % ((100.0*v_id)/n_vertex))
+                sys.stdout.flush()
                 if v_id == n_vertex:
                     break
+
+            print
 
             # reading faces
             f_id = 0
@@ -34,5 +40,9 @@ class PlyReader(object):
                 face = [int(v) for v in line.split()][1:4]
                 yield (EVENT_FACE, face)
                 f_id += 1
+                sys.stdout.write('\rReading faces: %.2f%%' % ((100.0*f_id)/n_faces))
+                sys.stdout.flush()
                 if f_id == n_faces:
                     break
+
+            print

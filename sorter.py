@@ -1,5 +1,6 @@
 import copy
 import corner_table
+import sys
 
 FIFO=1
 CONTROLLABLE=2
@@ -166,7 +167,11 @@ def k_cache_reorder(ct, model=FIFO):
         for vi in v_g[:]:
             if len(_get_unrenderable_faces_in_buffer_connected_v(ct, vi, v_g, v_w)) == 0 and v_g[0] == vi:
                 v_b.append(v_g.pop(0))
-                print '+'
+
+        sys.stdout.write('\rSorting: %.2f' % ((100.0*len(F_output))/(len(F))))
+        sys.stdout.flush()
+
+    print 
 
     counter = set()
     for vi in v_b:
