@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: UTF-8 -*-
 
-import corner_table
+import cy_corner_table
 import ply_reader
 import ply_writer
-import sorter
+import cy_sorter
 
 def calculate_d(ct, c_id):
     t = [0.0, 0.0, 0.0]
@@ -97,10 +97,10 @@ def ply2racm(ply_filename, racm_filename, cluster_size=200):
 
     print bb_min, bb_max
 
-    ct = corner_table.CornerTable()
+    ct = cy_corner_table.CornerTable()
     ct.create_corner_from_vertex_face(vertices, faces, vertices_faces)
 
-    foutput = sorter.k_cache_reorder(ct)
+    foutput = cy_sorter.k_cache_reorder(ct)
 
     print len(faces.keys())
     print 
