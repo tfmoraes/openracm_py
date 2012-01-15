@@ -4,11 +4,11 @@
 import itertools
 import sys
 
-cdef class CornerTable(object):
-    cdef list V
-    cdef list O 
-    cdef dict C
-    cdef dict vertices
+cdef class CornerTable:
+    cdef public list V
+    cdef public list O 
+    cdef public dict C
+    cdef public dict vertices
 
     def __init__(self):
         self.V = []
@@ -22,7 +22,8 @@ cdef class CornerTable(object):
         self._compute_O(vertices, faces, vertices_faces)
 
     cdef void _compute_V(self, dict faces):
-        cdef int face, i
+        cdef int face
+        cdef int i=0
         for face in sorted(faces):
             for vertex in faces[face]:
                 self.V.append(vertex)
@@ -34,7 +35,7 @@ cdef class CornerTable(object):
         print 
 
     cdef void _compute_O(self, dict vertices, dict faces, dict vertices_faces):
-        cdef int t, cn, cp, v0, v1, f0, f1, oface
+        cdef int t, c, cn, cp, v0, v1, f0, f1, oface, c_id, n, i
         for i in xrange(len(self.V)):
             self.O.append(-1)
 
@@ -57,7 +58,7 @@ cdef class CornerTable(object):
             else:
                 raise("Error")
 
-            for n, c in enumerate(self.iterate_triangle_corner(oface)):
+            for c in self.iterate_triangle_corner(oface):
                 if self.V[c] not in (self.V[cn], self.V[cp]):
                     self.O[c_id] = c
                     break
@@ -84,7 +85,7 @@ cdef class CornerTable(object):
     cdef int previous_corner(self, c_id):
         return self.next_corner(self.next_corner(c_id))
 
-    cdef tuple iterate_triangle_corner(self, int t_id):
+    cpdef tuple iterate_triangle_corner(self, int t_id):
         cdef int corner
         corner = self.get_corner_f(t_id)
         return corner, self.next_corner(corner), self.previous_corner(corner)
@@ -101,8 +102,8 @@ cdef class CornerTable(object):
     cdef int swing(self, int c_id):
         return self.next_corner(self.get_left_corner(c_id))
 
-    cdef list get_faces_connected_to_v(self, int v_id):
-        cdef int c, ti, t
+    cpdef list get_faces_connected_to_v(self, Py_ssize_t v_id):
+        cdef Py_ssize_t c, ti, t
         c = self.get_corner_v(v_id)
         ti = self.get_triangle(c)
         output = [ti, ]

@@ -32,7 +32,8 @@ class PlyWriter(object):
         with file(self.filename, 'w') as ply_file:
             self._write_header(ply_file, len(vertices), len(faces))
             for v in vertices.values():
-                ply_file.write(' '.join(['%f' % i for i in v[:3]]) + '\n')
+                ply_file.write((' '.join(['%f' % i for i in v[:3]]) +
+                                '\n').replace('.', ','))
 
             for vx, vy, vz in faces:
                 ply_file.write('3 %d %d %d\n' % (vx, vy, vz))
