@@ -116,7 +116,7 @@ cdef class CornerTable:
                 output.append(t)
         return output
 
-    cdef int get_vertex_degree(self, v_id):
+    cpdef int get_vertex_degree(self, v_id):
         cdef int degree, f
         degree = 1
         for f in self.get_faces_connected_to_v(v_id):

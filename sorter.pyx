@@ -30,8 +30,9 @@ def _count_degree(ct, v_id):
     return d
 
 
-def _get_minimun_degree_vertex(ct, v_w):
-    minimun = v_w[0]
+cdef int _get_minimun_degree_vertex(ct, list v_w):
+    cdef int v
+    cdef int minimun = v_w[0]
     for v in v_w:
         if ct.get_vertex_degree(v) < minimun:
             minimun = v
@@ -74,6 +75,15 @@ cdef  _get_unrenderable_faces_in_buffer(ct, v_g, v_w):
                 output.append(t_id)
     return output
 
+cdef int has_unrenderable_faces_connected_v(ct, int vfocus, dict v_status):
+    cdef int t_id, c_id
+    for t_id in ct.get_faces_connected_to_v(vfocus):
+        for c_id in ct.iterate_triangle_corner(t_id):
+            if v_status.get(ct.V[c_id], WHITE) == WHITE:
+                return True
+    return False
+
+
 
 cdef list _get_unrenderable_faces_in_buffer_connected_v(ct, int vfocus, list
                                                         v_g, list v_w, dict
@@ -98,7 +108,7 @@ cdef _calc_c2(ct, vfocus, v_w, v_g, v_status):
                                                              v_w, v_status))
 
 
-cdef _calc_c1_c3(ct, vfocus, v_w, v_g, F_output, v_status):
+def _calc_c1_c3(ct, vfocus, v_w, v_g, F_output, v_status):
     v_ws = v_w[:]
     v_gs = v_g[:]
     v_status_s = v_status.copy()
@@ -128,7 +138,7 @@ cdef _calc_c1_c3(ct, vfocus, v_w, v_g, F_output, v_status):
     return c1, c3
 
 
-def get_minimun_cost_vertex(ct, v_w, v_g, F_output, v_status):
+cdef int get_minimun_cost_vertex(ct, list v_w, list v_g, list F_output, dict v_status):
     minimun = None
     for v in v_g:
         c2 = _calc_c2(ct, v, v_w, v_g, v_status)
@@ -139,13 +149,16 @@ def get_minimun_cost_vertex(ct, v_w, v_g, F_output, v_status):
             vmin = v
     return vmin
 
+def sort_white_vertices(ct, v_w):
+    v_w.sort(key=lambda x: ct.get_vertex_degree(x))
 
 cpdef k_cache_reorder(ct, model=FIFO):
     cdef list v_w, v_g, v_b, F_output
     cdef dict v_status, f_status
     cdef int vfocus, vl, vi, fb, fr, f
     v_w = ct.vertices.keys()
-    #v_w.sort(key=lambda x: ct.get_vertex_degree(x))
+    sort_white_vertices(ct, v_w)
+    
 
     v_g = []
     v_b = []
@@ -158,7 +171,7 @@ cpdef k_cache_reorder(ct, model=FIFO):
 
     while len(v_b) < len(ct.vertices):
         if v_g:
-            vfocus =  v_g[0] #get_minimun_cost_vertex(ct, v_w, v_g, F_output, v_status)
+            vfocus =  get_minimun_cost_vertex(ct, v_w, v_g, F_output, v_status)
         else:
             vfocus = v_w[0]
         for f in ct.get_faces_connected_to_v(vfocus):
@@ -167,7 +180,7 @@ cpdef k_cache_reorder(ct, model=FIFO):
             for vl in _get_white_bounding_vertices(ct, v_w, f):
                 if len(v_g) == BUFFER_SIZE:
                     va = v_g.pop(0)
-                    v_w.append(va)
+                    v_w.insert(0, va)
                     v_status[va] = 0
                 v_w.remove(vl)
                 v_g.append(vl)
@@ -191,7 +204,7 @@ cpdef k_cache_reorder(ct, model=FIFO):
                 pass
 
         while 1:
-            if v_g and len(_get_unrenderable_faces_in_buffer_connected_v(ct, v_g[0], v_g, v_w, v_status)) == 0:
+            if v_g and has_unrenderable_faces_connected_v(ct, v_g[0], v_status):
                 v_b.append(v_g.pop(0))
             else:
                 break
