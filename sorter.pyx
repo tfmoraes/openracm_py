@@ -1,3 +1,7 @@
+#!/usr/bin/env python
+# -*- coding: UTF-8 -*-
+# cython: profile=True
+
 import copy
 import cy_corner_table
 import sys
@@ -39,12 +43,12 @@ cdef int _get_minimun_degree_vertex(CornerTable ct, list v_w):
             minimun = v
     return minimun
 
-cdef list _get_white_bounding_vertices(CornerTable ct, list v_w, int t_id):
+cdef list _get_white_bounding_vertices(CornerTable ct, list v_w, int t_id, dict vstatus):
     cdef int c_id, v_id
     cdef list output = []
     for c_id in ct.iterate_triangle_corner(t_id):
         v_id = ct.V[c_id]
-        if v_id in v_w:
+        if vstatus.get(v_id, WHITE) == WHITE:
             output.append(v_id)
     return output
 
@@ -106,26 +110,32 @@ cdef _calc_c2(CornerTable ct, int vfocus, list v_w, list v_g, dict v_status):
     return len(_get_unrenderable_faces_in_buffer_connected_v(ct, vfocus, v_g,
                                                              v_w, v_status))
 
-cdef tuple _calc_c1_c3(CornerTable ct, int vfocus, list v_w, list v_g, list F_output, dict v_status):
+cdef tuple _calc_c1_c3(CornerTable ct, int vfocus, list v_w, list v_g, list F_output, dict v_status, dict f_status):
     cdef list v_ws = v_w[:]
     cdef list v_gs = v_g[:]
     cdef dict v_status_s = v_status.copy()
-    cdef list F_output_s = F_output[:]
+    cdef dict f_status_s = f_status.copy()
+    #cdef list F_output_s = F_output[:]
     cdef int c1 = 0
-    cdef int f, vl, c3, i
+    cdef int f, fr, vl, c3, i
     for f in ct.get_faces_connected_to_v(vfocus):
-        if f in F_output_s:
+        if f_status_s.get(f, 0):
             break
-        for vl in _get_white_bounding_vertices(ct, v_ws, f):
+        for vl in _get_white_bounding_vertices(ct, v_ws, f, v_status_s):
             if len(v_gs) == BUFFER_SIZE:
                 va = v_gs.pop(0)
                 v_ws.append(va)
+                v_status_s[va] = WHITE
             v_ws.remove(vl)
             v_gs.append(vl)
+            v_status_s[vl] = GRAY
             c1 += 1
 
-            F_output_s.extend([i for i in _get_renderable_faces_in_buffer(ct, v_gs, v_ws, v_status_s) if (i != f) and (i not in F_output_s)]) 
-        F_output_s.append(f)
+            for fr in _get_renderable_faces_in_buffer(ct, v_gs, v_ws, v_status_s):
+                if (fr != f) and f_status_s.get(fr, 0) == 0:
+                    #F_output_s.append(fr)
+                    f_status_s[fr] = 1
+        #F_output_s.append(f)
 
     #v_b.append(v_focus)
 
@@ -137,13 +147,13 @@ cdef tuple _calc_c1_c3(CornerTable ct, int vfocus, list v_w, list v_g, list F_ou
     return c1, c3
 
 
-cdef int get_minimun_cost_vertex(CornerTable ct, list v_w, list v_g, list F_output, dict v_status):
+cdef int get_minimun_cost_vertex(CornerTable ct, list v_w, list v_g, list F_output, dict v_status, dict f_status):
     cdef int v, vmin, c1, c2, c3
     cdef float c
     cdef float minimun = 1000000
     for v in v_g:
         c2 = _calc_c2(ct, v, v_w, v_g, v_status)
-        c1, c3 = _calc_c1_c3(ct, v, v_w, v_g, F_output, v_status)
+        c1, c3 = _calc_c1_c3(ct, v, v_w, v_g, F_output, v_status, f_status)
         c = c1*K1 + c2*K2 + c3*K3
         if (c < minimun):
             minimun = c
@@ -172,20 +182,20 @@ cpdef k_cache_reorder(CornerTable ct, model=FIFO):
 
     while len(v_b) < len(ct.vertices):
         if v_g:
-            vfocus =  get_minimun_cost_vertex(ct, v_w, v_g, F_output, v_status)
+            vfocus =  get_minimun_cost_vertex(ct, v_w, v_g, F_output, v_status, f_status)
         else:
             vfocus = v_w[0]
         for f in ct.get_faces_connected_to_v(vfocus):
             if f_status.get(f, 0):
                 break
-            for vl in _get_white_bounding_vertices(ct, v_w, f):
+            for vl in _get_white_bounding_vertices(ct, v_w, f, v_status):
                 if len(v_g) == BUFFER_SIZE:
                     va = v_g.pop(0)
                     v_w.insert(0, va)
-                    v_status[va] = 0
+                    v_status[va] = WHITE
                 v_w.remove(vl)
                 v_g.append(vl)
-                v_status[vl] = 1
+                v_status[vl] = GRAY
 
                 for fr in _get_renderable_faces_in_buffer(ct, v_g, v_w, v_status):
                     if (fr != f) and f_status.get(fr, 0) == 0:
