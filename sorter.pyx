@@ -2,6 +2,8 @@ import copy
 import cy_corner_table
 import sys
 
+from cy_corner_table cimport CornerTable
+
 cdef int FIFO=1
 cdef int CONTROLLABLE=2
 
@@ -29,8 +31,7 @@ def _count_degree(ct, v_id):
             d += 1
     return d
 
-
-cdef int _get_minimun_degree_vertex(ct, list v_w):
+cdef int _get_minimun_degree_vertex(CornerTable ct, list v_w):
     cdef int v
     cdef int minimun = v_w[0]
     for v in v_w:
@@ -38,7 +39,7 @@ cdef int _get_minimun_degree_vertex(ct, list v_w):
             minimun = v
     return minimun
 
-cdef list _get_white_bounding_vertices(ct, list v_w, int t_id):
+cdef list _get_white_bounding_vertices(CornerTable ct, list v_w, int t_id):
     cdef int c_id, v_id
     cdef list output = []
     for c_id in ct.iterate_triangle_corner(t_id):
@@ -47,8 +48,7 @@ cdef list _get_white_bounding_vertices(ct, list v_w, int t_id):
             output.append(v_id)
     return output
 
-
-cdef list _get_renderable_faces_in_buffer(ct, list v_g, list v_w, dict v_status):
+cdef list _get_renderable_faces_in_buffer(CornerTable ct, list v_g, list v_w, dict v_status):
     cdef int t_id, c_id
     cdef list output = []
     for v_id in v_g:
@@ -62,7 +62,7 @@ cdef list _get_renderable_faces_in_buffer(ct, list v_g, list v_w, dict v_status)
     return output
 
 
-cdef  _get_unrenderable_faces_in_buffer(ct, v_g, v_w):
+cdef list _get_unrenderable_faces_in_buffer(CornerTable ct, list v_g, list v_w):
     cdef int t_id, c_id, cg
     output = []
     for v_id in v_g:
@@ -75,7 +75,7 @@ cdef  _get_unrenderable_faces_in_buffer(ct, v_g, v_w):
                 output.append(t_id)
     return output
 
-cdef int has_unrenderable_faces_connected_v(ct, int vfocus, dict v_status):
+cdef int has_unrenderable_faces_connected_v(CornerTable ct, int vfocus, dict v_status):
     cdef int t_id, c_id
     for t_id in ct.get_faces_connected_to_v(vfocus):
         for c_id in ct.iterate_triangle_corner(t_id):
@@ -84,8 +84,7 @@ cdef int has_unrenderable_faces_connected_v(ct, int vfocus, dict v_status):
     return False
 
 
-
-cdef list _get_unrenderable_faces_in_buffer_connected_v(ct, int vfocus, list
+cdef list _get_unrenderable_faces_in_buffer_connected_v(CornerTable ct, int vfocus, list
                                                         v_g, list v_w, dict
                                                         v_status):
     """
@@ -103,17 +102,17 @@ cdef list _get_unrenderable_faces_in_buffer_connected_v(ct, int vfocus, list
     return output
 
 
-cdef _calc_c2(ct, vfocus, v_w, v_g, v_status):
+cdef _calc_c2(CornerTable ct, int vfocus, list v_w, list v_g, dict v_status):
     return len(_get_unrenderable_faces_in_buffer_connected_v(ct, vfocus, v_g,
                                                              v_w, v_status))
 
-
-def _calc_c1_c3(ct, vfocus, v_w, v_g, F_output, v_status):
-    v_ws = v_w[:]
-    v_gs = v_g[:]
-    v_status_s = v_status.copy()
-    F_output_s = F_output[:]
-    c1 = 0
+cdef tuple _calc_c1_c3(CornerTable ct, int vfocus, list v_w, list v_g, list F_output, dict v_status):
+    cdef list v_ws = v_w[:]
+    cdef list v_gs = v_g[:]
+    cdef dict v_status_s = v_status.copy()
+    cdef list F_output_s = F_output[:]
+    cdef int c1 = 0
+    cdef int f, vl, c3, i
     for f in ct.get_faces_connected_to_v(vfocus):
         if f in F_output_s:
             break
@@ -138,13 +137,15 @@ def _calc_c1_c3(ct, vfocus, v_w, v_g, F_output, v_status):
     return c1, c3
 
 
-cdef int get_minimun_cost_vertex(ct, list v_w, list v_g, list F_output, dict v_status):
-    minimun = None
+cdef int get_minimun_cost_vertex(CornerTable ct, list v_w, list v_g, list F_output, dict v_status):
+    cdef int v, vmin, c1, c2, c3
+    cdef float c
+    cdef float minimun = 1000000
     for v in v_g:
         c2 = _calc_c2(ct, v, v_w, v_g, v_status)
         c1, c3 = _calc_c1_c3(ct, v, v_w, v_g, F_output, v_status)
         c = c1*K1 + c2*K2 + c3*K3
-        if (minimun is None) or (c < minimun):
+        if (c < minimun):
             minimun = c
             vmin = v
     return vmin
@@ -152,7 +153,7 @@ cdef int get_minimun_cost_vertex(ct, list v_w, list v_g, list F_output, dict v_s
 def sort_white_vertices(ct, v_w):
     v_w.sort(key=lambda x: ct.get_vertex_degree(x))
 
-cpdef k_cache_reorder(ct, model=FIFO):
+cpdef k_cache_reorder(CornerTable ct, model=FIFO):
     cdef list v_w, v_g, v_b, F_output
     cdef dict v_status, f_status
     cdef int vfocus, vl, vi, fb, fr, f

@@ -5,11 +5,6 @@ import itertools
 import sys
 
 cdef class CornerTable:
-    cdef public list V
-    cdef public list O 
-    cdef public dict C
-    cdef public dict vertices
-
     def __init__(self):
         self.V = []
         self.O = []
