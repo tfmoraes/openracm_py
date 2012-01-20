@@ -5,6 +5,7 @@ import cy_corner_table
 import ply_reader
 import ply_writer
 import cy_sorter
+import wrl_writer
 
 def calculate_d(ct, c_id):
     t = [0.0, 0.0, 0.0]
@@ -109,7 +110,7 @@ def ply2racm(ply_filename, racm_filename, cluster_size=200):
     #taubin_smooth(ct, 0.5, -0.53, 10)
 
     #writing a output ply from taubin smooth algorithm
-    writer = ply_writer.PlyWriter(racm_filename)
+    writer = wrl_writer.WrlWriter(racm_filename)
     writer.from_faces_vertices_list([faces[i] for i in foutput], vertices)
     #writer.from_corner_table(ct)
 
