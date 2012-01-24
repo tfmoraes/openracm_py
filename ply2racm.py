@@ -63,7 +63,7 @@ def taubin_smooth(ct, l, m, steps):
             ct.vertices[v] = [x + m*y for x,y in zip(vp, d)]
 
 
-def ply2racm(ply_filename, racm_filename, cluster_size=200):
+def ply2racm(ply_filename, racm_filename, buffer_size, cluster_size=200):
     vertices = {}
     faces = {}
     vertices_faces = {}
@@ -101,7 +101,7 @@ def ply2racm(ply_filename, racm_filename, cluster_size=200):
     ct = cy_corner_table.CornerTable()
     ct.create_corner_from_vertex_face(vertices, faces, vertices_faces)
 
-    foutput = cy_sorter.k_cache_reorder(ct)
+    foutput = cy_sorter.k_cache_reorder(ct, buffer_size)
 
     print len(faces.keys())
     print 
@@ -148,7 +148,7 @@ def ply2racm(ply_filename, racm_filename, cluster_size=200):
 
 def main():
     import sys
-    ply2racm(sys.argv[1], sys.argv[2])
+    ply2racm(sys.argv[1], sys.argv[2], int(sys.argv[3]))
 
 if __name__ == '__main__':
     main()

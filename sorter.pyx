@@ -97,12 +97,10 @@ cdef list _get_unrenderable_faces_in_buffer_connected_v(CornerTable ct, int vfoc
     cdef list output = []
     cdef int t_id, c_id, cg
     for t_id in ct.get_faces_connected_to_v(vfocus):
-        cg = 0
         for c_id in ct.iterate_triangle_corner(t_id):
-            if v_status.get(ct.V[c_id], WHITE) == GRAY:
-                cg += 1
-        if cg != 3:
-            output.append(t_id)
+            if v_status.get(ct.V[c_id], WHITE) == WHITE:
+                output.append(t_id)
+                break
     return output
 
 
@@ -110,7 +108,8 @@ cdef _calc_c2(CornerTable ct, int vfocus, list v_w, list v_g, dict v_status):
     return len(_get_unrenderable_faces_in_buffer_connected_v(ct, vfocus, v_g,
                                                              v_w, v_status))
 
-cdef tuple _calc_c1_c3(CornerTable ct, int vfocus, list v_w, list v_g, list F_output, dict v_status, dict f_status):
+cdef tuple _calc_c1_c3(CornerTable ct, int vfocus, list v_w, list v_g, list
+                       F_output, dict v_status, dict f_status, int buffer_size):
     cdef list v_ws = v_w[:]
     cdef list v_gs = v_g[:]
     cdef dict v_status_s = v_status.copy()
@@ -120,9 +119,9 @@ cdef tuple _calc_c1_c3(CornerTable ct, int vfocus, list v_w, list v_g, list F_ou
     cdef int f, fr, vl, c3, i
     for f in ct.get_faces_connected_to_v(vfocus):
         if f_status_s.get(f, 0):
-            break
+            continue
         for vl in _get_white_bounding_vertices(ct, v_ws, f, v_status_s):
-            if len(v_gs) == BUFFER_SIZE:
+            if len(v_gs) == buffer_size:
                 va = v_gs.pop(0)
                 v_ws.append(va)
                 v_status_s[va] = WHITE
@@ -142,19 +141,22 @@ cdef tuple _calc_c1_c3(CornerTable ct, int vfocus, list v_w, list v_g, list F_ou
     try:
         c3 = v_gs.index(vfocus)
     except ValueError:
-        c3 = 0
+        c3 = buffer_size
 
-    return c1, c3
+    return c1, float(c3) / buffer_size
 
 
-cdef int get_minimun_cost_vertex(CornerTable ct, list v_w, list v_g, list F_output, dict v_status, dict f_status):
-    cdef int v, vmin, c1, c2, c3
-    cdef float c
+cdef int get_minimun_cost_vertex(CornerTable ct, list v_w, list v_g, list
+                                 F_output, dict v_status, dict f_status,
+                                 int buffer_size):
+    cdef int v, vmin, c1, c2
+    cdef float c, c3
     cdef float minimun = 1000000
     for v in v_g:
         c2 = _calc_c2(ct, v, v_w, v_g, v_status)
-        c1, c3 = _calc_c1_c3(ct, v, v_w, v_g, F_output, v_status, f_status)
+        c1, c3 = _calc_c1_c3(ct, v, v_w, v_g, F_output, v_status, f_status, buffer_size)
         c = c1*K1 + c2*K2 + c3*K3
+        #print c1, c2, c3, c
         if (c < minimun):
             minimun = c
             vmin = v
@@ -163,13 +165,15 @@ cdef int get_minimun_cost_vertex(CornerTable ct, list v_w, list v_g, list F_outp
 def sort_white_vertices(ct, v_w):
     v_w.sort(key=lambda x: ct.get_vertex_degree(x))
 
-cpdef k_cache_reorder(CornerTable ct, model=FIFO):
+cpdef k_cache_reorder(CornerTable ct, buffer_size, model=FIFO):
     cdef list v_w, v_g, v_b, F_output
     cdef dict v_status, f_status
     cdef int vfocus, vl, vi, fb, fr, f
     v_w = ct.vertices.keys()
     sort_white_vertices(ct, v_w)
     
+
+    print "Buffer size", buffer_size
 
     v_g = []
     v_b = []
@@ -182,14 +186,15 @@ cpdef k_cache_reorder(CornerTable ct, model=FIFO):
 
     while len(v_b) < len(ct.vertices):
         if v_g:
-            vfocus =  get_minimun_cost_vertex(ct, v_w, v_g, F_output, v_status, f_status)
+            vfocus =  get_minimun_cost_vertex(ct, v_w, v_g, F_output, v_status,
+                                              f_status, buffer_size)
         else:
-            vfocus = v_w[0]
+            vfocus = _get_minimun_degree_vertex(ct, v_w)
         for f in ct.get_faces_connected_to_v(vfocus):
             if f_status.get(f, 0):
-                break
+                continue
             for vl in _get_white_bounding_vertices(ct, v_w, f, v_status):
-                if len(v_g) == BUFFER_SIZE:
+                if len(v_g) == buffer_size:
                     va = v_g.pop(0)
                     v_w.insert(0, va)
                     v_status[va] = WHITE
