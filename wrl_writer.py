@@ -27,7 +27,7 @@ Transform {
 
     def write_vertices(self, wrl_file, vertices):
         wrl_file.write('point\n[\n')
-        for v in vertices.values():
+        for v in vertices:
             wrl_file.write(' '.join(['%f' % i for i in v[:3]]) + ',\n')
         wrl_file.write(']\n}')
 
