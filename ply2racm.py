@@ -106,10 +106,9 @@ def ply2racm(ply_filename, racm_filename, buffer_size, cluster_size=200):
 
     #foutput = cy_sorter.k_cache_reorder(ct, buffer_size)
 
-    foutput = sorter.tipsify(faces, 12, vertices_faces, vertices_face_count)
+    foutput = sorter.tipsify(faces, buffer_size, vertices_faces, vertices_face_count)
 
     print len(vertices), len(foutput), len(faces)
-    print foutput
 
     #taubin_smooth(ct, 0.5, -0.53, 10)
 
