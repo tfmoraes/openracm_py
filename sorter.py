@@ -196,3 +196,70 @@ def k_cache_reorder(ct, model=FIFO):
                 counter.add(fb)
     print len(F_output), len(F), len(counter), len(v_b), len(v_g), len(v_w)
     return F_output
+
+def skip_dead_end(L, D, I, i):
+    while D:
+        d = D.pop()
+        if L[d] > 0:
+            return d
+
+    while i < len(L):
+        if L[i] > 0:
+            return i
+        i += 1
+    return -1
+
+def get_next_vertex(I, i, k, N, C, s, L, D):
+    n = -1
+    p = -1
+    m = 0
+    for v in N:
+        if L[v] > 0:
+            p = 0
+            if s-C[v] + 2*L[v] <= k:
+                p = s - C[v]
+            if p > m:
+                m = p
+                n = v
+    if n == -1:
+        n = skip_dead_end(L, D, I, i)
+    return n
+
+def tipsify(I, k, A, L):
+    """
+    Implementation of Tipsify from paper "Fast Triangle Reordering for Vertex
+    Locality and Reduced Overdraw-paper".
+    I - Index buffer. Is a vertex buffer, each line is triangle and its
+        vertices;
+    k - Buffer size;
+    A - Vertex-triangle adjacency. Maps for each vertex its triangles
+        adjacents;
+    L - The number of adjacent triangles to each vertex.
+    """
+
+    C = {}
+    D = []
+    E = {}
+    O = []
+    f = 0
+    s = k + 1
+    i = 1
+
+    while f >= 0:
+        N = set()
+        for t in A[f]:
+            if not E.get(t, False):
+                O.append([])
+                for v in I[t]:
+                    O[-1].append(v)
+                    D.insert(0, v)
+                    N.add(v)
+                    L[v] = L[v] - 1
+                    if s - C.get(v, 0) > k:
+                        C[v] = s
+                        s += 1
+            E[t] = True
+        f = get_next_vertex(I, i, k, N, C, s, L, D)
+    return O
+
+
