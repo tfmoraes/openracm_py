@@ -6,6 +6,7 @@ import ply_reader
 import ply_writer
 import cy_sorter
 import wrl_writer
+import sorter
 
 def calculate_d(ct, c_id):
     t = [0.0, 0.0, 0.0]
@@ -67,6 +68,7 @@ def ply2racm(ply_filename, racm_filename, buffer_size, cluster_size=200):
     vertices = {}
     faces = {}
     vertices_faces = {}
+    vertices_face_count = []
     bb_min = None
     bb_max = None
     v_id = 0
@@ -75,7 +77,8 @@ def ply2racm(ply_filename, racm_filename, buffer_size, cluster_size=200):
     for evt, data in reader.read():
         if evt == ply_reader.EVENT_VERTEX:
             current_vertex = data
-            vertices[v_id] = current_vertex[:] + [0,]
+            vertices[v_id] = current_vertex
+            vertices_face_count.append(0)
 
             # Calculating the bounding box
             if v_id == 0:
@@ -89,29 +92,29 @@ def ply2racm(ply_filename, racm_filename, buffer_size, cluster_size=200):
         elif evt == ply_reader.EVENT_FACE:
             faces[f_id] = data
             for v in faces[f_id]:
-                vertices[v][-1] += 1
                 try:
                     vertices_faces[v].append(f_id)
                 except KeyError:
                     vertices_faces[v] = [f_id,]
+                vertices_face_count[v] += 1
             f_id += 1
 
     print bb_min, bb_max
 
-    ct = cy_corner_table.CornerTable()
-    ct.create_corner_from_vertex_face(vertices, faces, vertices_faces)
+    #ct = cy_corner_table.CornerTable()
+    #ct.create_corner_from_vertex_face(vertices, faces, vertices_faces)
 
-    foutput = cy_sorter.k_cache_reorder(ct, buffer_size)
+    #foutput = cy_sorter.k_cache_reorder(ct, buffer_size)
 
-    print len(faces.keys())
-    print 
-    print len(foutput)
+    foutput = sorter.tipsify(faces, buffer_size, vertices_faces, vertices_face_count)
+
+    print len(vertices), len(foutput), len(faces)
 
     #taubin_smooth(ct, 0.5, -0.53, 10)
 
     #writing a output ply from taubin smooth algorithm
     writer = wrl_writer.WrlWriter(racm_filename)
-    writer.from_faces_vertices_list([faces[i] for i in foutput], vertices)
+    writer.from_faces_vertices_list(foutput, vertices)
     #writer.from_corner_table(ct)
 
     #print [ct.V[i] for i in ct.O]
