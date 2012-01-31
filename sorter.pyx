@@ -37,7 +37,7 @@ def _count_degree(ct, v_id):
 
 cdef int _get_minimun_degree_vertex(CornerTable ct, list v_w):
     cdef int v
-    cdef int minimun = v_w[0]
+    cdef int minimun = 1000000
     for v in v_w:
         if ct.get_vertex_degree(v) < minimun:
             minimun = v
@@ -117,9 +117,7 @@ cdef tuple _calc_c1_c3(CornerTable ct, int vfocus, list v_w, list v_g, list
     #cdef list F_output_s = F_output[:]
     cdef int c1 = 0
     cdef int f, fr, vl, c3, i
-    for f in ct.get_faces_connected_to_v(vfocus):
-        if f_status_s.get(f, 0):
-            continue
+    for f in get_unrendered_faces_connected_v(ct, vfocus, f_status_s):
         for vl in _get_white_bounding_vertices(ct, v_ws, f, v_status_s):
             if len(v_gs) == buffer_size:
                 va = v_gs.pop(0)
@@ -165,6 +163,16 @@ cdef int get_minimun_cost_vertex(CornerTable ct, list v_w, list v_g, list
 def sort_white_vertices(ct, v_w):
     v_w.sort(key=lambda x: ct.get_vertex_degree(x))
 
+
+cdef list get_unrendered_faces_connected_v(ct, v, f_status):
+    cdef int f
+    cdef list output = []
+    for f in ct.get_faces_connected_to_v(v):
+        if f_status.get(f, 0) == 0:
+            output.append(f)
+    return output
+
+
 cpdef k_cache_reorder(CornerTable ct, buffer_size, model=FIFO):
     cdef list v_w, v_g, v_b, F_output
     cdef dict v_status, f_status
@@ -190,9 +198,7 @@ cpdef k_cache_reorder(CornerTable ct, buffer_size, model=FIFO):
                                               f_status, buffer_size)
         else:
             vfocus = _get_minimun_degree_vertex(ct, v_w)
-        for f in ct.get_faces_connected_to_v(vfocus):
-            if f_status.get(f, 0):
-                continue
+        for f in get_unrendered_faces_connected_v(ct, vfocus, f_status):
             for vl in _get_white_bounding_vertices(ct, v_w, f, v_status):
                 if len(v_g) == buffer_size:
                     va = v_g.pop(0)
