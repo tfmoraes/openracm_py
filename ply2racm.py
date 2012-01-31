@@ -1,12 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: UTF-8 -*-
 
+import argparse
 import cy_corner_table
+import cy_sorter
 import ply_reader
 import ply_writer
-import cy_sorter
-import wrl_writer
 import sorter
+import wrl_writer
 
 def calculate_d(ct, c_id):
     t = [0.0, 0.0, 0.0]
@@ -64,7 +65,7 @@ def taubin_smooth(ct, l, m, steps):
             ct.vertices[v] = [x + m*y for x,y in zip(vp, d)]
 
 
-def ply2racm(ply_filename, racm_filename, buffer_size, cluster_size=200):
+def ply2racm(ply_filename, racm_filename, buffer_size, algorithm, cluster_size=200):
     vertices = {}
     faces = {}
     vertices_faces = {}
@@ -101,21 +102,20 @@ def ply2racm(ply_filename, racm_filename, buffer_size, cluster_size=200):
 
     print bb_min, bb_max
 
-    #ct = cy_corner_table.CornerTable()
-    #ct.create_corner_from_vertex_face(vertices, faces, vertices_faces)
+    if algorithm == 'tipsify':
+        foutput = sorter.tipsify(faces, buffer_size, vertices_faces, vertices_face_count)
+    else:
+        ct = cy_corner_table.CornerTable()
+        ct.create_corner_from_vertex_face(vertices, faces, vertices_faces)
+        foutput = cy_sorter.k_cache_reorder(ct, buffer_size)
+        foutput = [faces[i] for i in foutput]
 
-    #foutput = cy_sorter.k_cache_reorder(ct, buffer_size)
-
-    foutput = sorter.tipsify(faces, buffer_size, vertices_faces, vertices_face_count)
-
-    print len(vertices), len(foutput), len(faces)
-
-    #taubin_smooth(ct, 0.5, -0.53, 10)
-
-    #writing a output ply from taubin smooth algorithm
-    writer = wrl_writer.WrlWriter(racm_filename)
-    writer.from_faces_vertices_list(foutput, vertices)
-    #writer.from_corner_table(ct)
+    if racm_filename.endswith('.ply'):
+        writer = ply_writer.PlyWriter(racm_filename)
+        writer.from_faces_vertices_list(foutput, vertices)
+    elif racm_filename.endswith('.wrl'):
+        writer = wrl_writer.WrlWriter(racm_filename)
+        writer.from_faces_vertices_list(foutput, vertices)
 
     #print [ct.V[i] for i in ct.O]
     #print 
@@ -150,8 +150,16 @@ def ply2racm(ply_filename, racm_filename, buffer_size, cluster_size=200):
 
 
 def main():
-    import sys
-    ply2racm(sys.argv[1], sys.argv[2], int(sys.argv[3]))
+    parser = argparse.ArgumentParser(description="Ply to openracm")
+    parser.add_argument('input', help='A Ply input file')
+    parser.add_argument('output', help='A Ply or a WRL output file')
+    parser.add_argument('-b', dest="buffer_size", type=int, default=12)
+    parser.add_argument('-a', dest='algorithm', choices=('tipsify', 'k-cache-reorder'),
+                        default='tipsify', help="The algorithm used to sort the"\
+                        "mesh Tipsify or k-cache-reorder")
+    args = parser.parse_args()
+
+    ply2racm(args.input, args.output, args.buffer_size, args.algorithm)
 
 if __name__ == '__main__':
     main()
