@@ -5,6 +5,7 @@
 import copy
 import cy_corner_table
 import sys
+import random
 
 from cy_corner_table cimport CornerTable
 
@@ -66,16 +67,15 @@ cdef list _get_renderable_faces_in_buffer(CornerTable ct, list v_g, list v_w, di
     return output
 
 
-cdef list _get_unrenderable_faces_in_buffer(CornerTable ct, list v_g, list v_w):
-    cdef int t_id, c_id, cg
-    output = []
+cdef list _get_unrenderable_faces_in_buffer(CornerTable ct, list v_g, list v_w, dict v_status):
+    cdef int t_id, c_id
+    cdef list output = []
     for v_id in v_g:
         for t_id in ct.get_faces_connected_to_v(v_id):
-            cg = 0
             for c_id in ct.iterate_triangle_corner(t_id):
-                if ct.V[c_id] in v_g:
-                    cg += 1
-            if cg != 3:
+                if v_status[ct.V[c_id]] == GRAY:
+                    break
+            else:
                 output.append(t_id)
     return output
 
@@ -113,7 +113,7 @@ cdef tuple _calc_c1_c3(CornerTable ct, int vfocus, list v_w, list v_g, list
     cdef list v_ws = v_w[:]
     cdef list v_gs = v_g[:]
     cdef dict v_status_s = v_status.copy()
-    cdef dict f_status_s = f_status.copy()
+    cdef dict f_status_s = f_status
     #cdef list F_output_s = F_output[:]
     cdef int c1 = 0
     cdef int f, fr, vl, c3, i
@@ -128,10 +128,10 @@ cdef tuple _calc_c1_c3(CornerTable ct, int vfocus, list v_w, list v_g, list
             v_status_s[vl] = GRAY
             c1 += 1
 
-            for fr in _get_renderable_faces_in_buffer(ct, v_gs, v_ws, v_status_s):
-                if (fr != f) and f_status_s.get(fr, 0) == 0:
-                    #F_output_s.append(fr)
-                    f_status_s[fr] = 1
+            #for fr in _get_renderable_faces_in_buffer(ct, v_gs, v_ws, v_status_s):
+                #if (fr != f) and f_status_s.get(fr, 0) == 0:
+                    ##F_output_s.append(fr)
+                    #f_status_s[fr] = 1
         #F_output_s.append(f)
 
     #v_b.append(v_focus)
@@ -178,11 +178,8 @@ cpdef k_cache_reorder(CornerTable ct, buffer_size, model=FIFO):
     cdef dict v_status, f_status
     cdef int vfocus, vl, vi, fb, fr, f
     v_w = ct.vertices.keys()
-    sort_white_vertices(ct, v_w)
+    #sort_white_vertices(ct, v_w)
     
-
-    print "Buffer size", buffer_size
-
     v_g = []
     v_b = []
 
@@ -225,15 +222,15 @@ cpdef k_cache_reorder(CornerTable ct, buffer_size, model=FIFO):
             except ValueError:
                 pass
 
+        sys.stdout.write('\rSorting: %.2f - %d - %d - %d' % ((100.0*len(F_output))/(len(F)),
+                                              len(v_b), len(v_w), len(v_g)))
+        sys.stdout.flush()
+
         while 1:
             if v_g and has_unrenderable_faces_connected_v(ct, v_g[0], v_status):
                 v_b.append(v_g.pop(0))
             else:
                 break
-
-        sys.stdout.write('\rSorting: %.2f' % ((100.0*len(F_output))/(len(F))))
-        sys.stdout.flush()
-
     print 
     print len(F_output), len(F)
     return F_output
