@@ -5,6 +5,7 @@
 import copy
 import cy_corner_table
 import sys
+import random
 
 from cy_corner_table cimport CornerTable
 
@@ -37,7 +38,7 @@ def _count_degree(ct, v_id):
 
 cdef int _get_minimun_degree_vertex(CornerTable ct, list v_w):
     cdef int v
-    cdef int minimun = v_w[0]
+    cdef int minimun = 1000000
     for v in v_w:
         if ct.get_vertex_degree(v) < minimun:
             minimun = v
@@ -66,16 +67,15 @@ cdef list _get_renderable_faces_in_buffer(CornerTable ct, list v_g, list v_w, di
     return output
 
 
-cdef list _get_unrenderable_faces_in_buffer(CornerTable ct, list v_g, list v_w):
-    cdef int t_id, c_id, cg
-    output = []
+cdef list _get_unrenderable_faces_in_buffer(CornerTable ct, list v_g, list v_w, dict v_status):
+    cdef int t_id, c_id
+    cdef list output = []
     for v_id in v_g:
         for t_id in ct.get_faces_connected_to_v(v_id):
-            cg = 0
             for c_id in ct.iterate_triangle_corner(t_id):
-                if ct.V[c_id] in v_g:
-                    cg += 1
-            if cg != 3:
+                if v_status[ct.V[c_id]] == GRAY:
+                    break
+            else:
                 output.append(t_id)
     return output
 
@@ -113,13 +113,11 @@ cdef tuple _calc_c1_c3(CornerTable ct, int vfocus, list v_w, list v_g, list
     cdef list v_ws = v_w[:]
     cdef list v_gs = v_g[:]
     cdef dict v_status_s = v_status.copy()
-    cdef dict f_status_s = f_status.copy()
+    cdef dict f_status_s = f_status
     #cdef list F_output_s = F_output[:]
     cdef int c1 = 0
     cdef int f, fr, vl, c3, i
-    for f in ct.get_faces_connected_to_v(vfocus):
-        if f_status_s.get(f, 0):
-            continue
+    for f in get_unrendered_faces_connected_v(ct, vfocus, f_status_s):
         for vl in _get_white_bounding_vertices(ct, v_ws, f, v_status_s):
             if len(v_gs) == buffer_size:
                 va = v_gs.pop(0)
@@ -130,10 +128,10 @@ cdef tuple _calc_c1_c3(CornerTable ct, int vfocus, list v_w, list v_g, list
             v_status_s[vl] = GRAY
             c1 += 1
 
-            for fr in _get_renderable_faces_in_buffer(ct, v_gs, v_ws, v_status_s):
-                if (fr != f) and f_status_s.get(fr, 0) == 0:
-                    #F_output_s.append(fr)
-                    f_status_s[fr] = 1
+            #for fr in _get_renderable_faces_in_buffer(ct, v_gs, v_ws, v_status_s):
+                #if (fr != f) and f_status_s.get(fr, 0) == 0:
+                    ##F_output_s.append(fr)
+                    #f_status_s[fr] = 1
         #F_output_s.append(f)
 
     #v_b.append(v_focus)
@@ -165,16 +163,23 @@ cdef int get_minimun_cost_vertex(CornerTable ct, list v_w, list v_g, list
 def sort_white_vertices(ct, v_w):
     v_w.sort(key=lambda x: ct.get_vertex_degree(x))
 
+
+cdef list get_unrendered_faces_connected_v(ct, v, f_status):
+    cdef int f
+    cdef list output = []
+    for f in ct.get_faces_connected_to_v(v):
+        if f_status.get(f, 0) == 0:
+            output.append(f)
+    return output
+
+
 cpdef k_cache_reorder(CornerTable ct, buffer_size, model=FIFO):
     cdef list v_w, v_g, v_b, F_output
     cdef dict v_status, f_status
     cdef int vfocus, vl, vi, fb, fr, f
     v_w = ct.vertices.keys()
-    sort_white_vertices(ct, v_w)
+    #sort_white_vertices(ct, v_w)
     
-
-    print "Buffer size", buffer_size
-
     v_g = []
     v_b = []
 
@@ -190,9 +195,7 @@ cpdef k_cache_reorder(CornerTable ct, buffer_size, model=FIFO):
                                               f_status, buffer_size)
         else:
             vfocus = _get_minimun_degree_vertex(ct, v_w)
-        for f in ct.get_faces_connected_to_v(vfocus):
-            if f_status.get(f, 0):
-                continue
+        for f in get_unrendered_faces_connected_v(ct, vfocus, f_status):
             for vl in _get_white_bounding_vertices(ct, v_w, f, v_status):
                 if len(v_g) == buffer_size:
                     va = v_g.pop(0)
@@ -219,15 +222,15 @@ cpdef k_cache_reorder(CornerTable ct, buffer_size, model=FIFO):
             except ValueError:
                 pass
 
+        sys.stdout.write('\rSorting: %.2f - %d - %d - %d' % ((100.0*len(F_output))/(len(F)),
+                                              len(v_b), len(v_w), len(v_g)))
+        sys.stdout.flush()
+
         while 1:
             if v_g and has_unrenderable_faces_connected_v(ct, v_g[0], v_status):
                 v_b.append(v_g.pop(0))
             else:
                 break
-
-        sys.stdout.write('\rSorting: %.2f' % ((100.0*len(F_output))/(len(F))))
-        sys.stdout.flush()
-
     print 
     print len(F_output), len(F)
     return F_output
