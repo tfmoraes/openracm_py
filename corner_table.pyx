@@ -1,31 +1,37 @@
 #!/usr/bin/env python
 # -*- coding: UTF-8 -*-
+# cython: profile=True
 
 import itertools
 import sys
 
-class CornerTable(object):
+cdef class CornerTable:
     def __init__(self):
         self.V = []
         self.O = []
         self.C = {}
+        self.vertices = {}
 
-    def create_corner_from_vertex_face(self, vertices, faces, vertices_faces):
+    cpdef create_corner_from_vertex_face(self, dict vertices, dict faces, dict vertices_faces):
         self.vertices = vertices
         self._compute_V(faces)
         self._compute_O(vertices, faces, vertices_faces)
 
-    def _compute_V(self, faces):
+    cdef void _compute_V(self, dict faces):
+        cdef int face
+        cdef int i=0
         for face in sorted(faces):
             for vertex in faces[face]:
                 self.V.append(vertex)
-                self.C[vertex] = len(self.V) - 1
+                self.C[vertex] = i
+                i += 1
 
             sys.stdout.write('\rComputing V: %.2f' % ((100.0*face)/(len(faces)-1)))
             sys.stdout.flush()
         print 
 
-    def _compute_O(self, vertices, faces, vertices_faces):
+    cdef void _compute_O(self, dict vertices, dict faces, dict vertices_faces):
+        cdef int t, c, cn, cp, v0, v1, f0, f1, oface, c_id, n, i
         for i in xrange(len(self.V)):
             self.O.append(-1)
 
@@ -48,7 +54,7 @@ class CornerTable(object):
             else:
                 raise("Error")
 
-            for n, c in enumerate(self.iterate_triangle_corner(oface)):
+            for c in self.iterate_triangle_corner(oface):
                 if self.V[c] not in (self.V[cn], self.V[cp]):
                     self.O[c_id] = c
                     break
@@ -57,55 +63,57 @@ class CornerTable(object):
             sys.stdout.flush()
         print 
 
-    def get_vertex(self, c_id):
+    cdef int get_vertex(self, int c_id):
         return self.vertices[self.V[c_id]]
 
-    def get_triangle(self, c_id):
+    cdef int get_triangle(self, int c_id):
         return c_id / 3
 
-    def get_corner_f(self, t_id):
+    cdef int get_corner_f(self, int t_id):
         return t_id * 3
 
-    def get_corner_v(self, v_id):
+    cdef int get_corner_v(self, int v_id):
         return self.C[v_id]
 
-    def next_corner(self, c_id):
+    cdef int next_corner(self, int c_id):
         return 3 * self.get_triangle(c_id) + ((c_id + 1) % 3)
 
-    def previous_corner(self, c_id):
+    cdef int previous_corner(self, c_id):
         return self.next_corner(self.next_corner(c_id))
 
-    def iterate_triangle_corner(self, t_id):
+    cpdef tuple iterate_triangle_corner(self, int t_id):
+        cdef int corner
         corner = self.get_corner_f(t_id)
-        yield corner
-        yield self.next_corner(corner)
-        yield self.previous_corner(corner)
+        return corner, self.next_corner(corner), self.previous_corner(corner)
 
-    def get_oposite_corner(self, c_id):
+    cdef int get_oposite_corner(self, int c_id):
         return self.O[c_id]
 
-    def get_left_corner(self, c_id):
+    cdef int get_left_corner(self, int c_id):
         return self.get_oposite_corner(self.next_corner(c_id))
 
-    def get_right_corner(self, c_id):
+    cdef int get_right_corner(self, int c_id):
         return self.get_oposite_corner(self.previous_corner(c_id))
 
-    def swing(self, c_id):
+    cdef int swing(self, int c_id):
         return self.next_corner(self.get_left_corner(c_id))
 
-    def get_faces_connected_to_v(self, v_id):
+    cpdef list get_faces_connected_to_v(self, Py_ssize_t v_id):
+        cdef Py_ssize_t c, ti, t
         c = self.get_corner_v(v_id)
         ti = self.get_triangle(c)
-        yield ti
+        output = [ti, ]
         while 1:
             c = self.swing(c)
             t = self.get_triangle(c)
             if t == ti:
                 break
             else:
-                yield t
+                output.append(t)
+        return output
 
-    def get_vertex_degree(self, v_id):
+    cpdef int get_vertex_degree(self, v_id):
+        cdef int degree, f
         degree = 1
         for f in self.get_faces_connected_to_v(v_id):
             degree += 1
