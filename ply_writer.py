@@ -42,7 +42,10 @@ class PlyWriter(object):
             for k, v in vertices.items():
                 if colours is not None:
                     ply_file.write((' '.join(['%f' % i for i in v[:3]])).replace('.', ','))
-                    ply_file.write(' %d %d %d 255\n' % colours[k])
+                    try:
+                        ply_file.write(' %d %d %d 255\n' % colours[k])
+                    except KeyError:
+                        ply_file.write(' %d %d %d 255\n' % (0, 0, 0))
                 else:
                     ply_file.write((' '.join(['%f' % i for i in v[:3]]) +
                                     '\n').replace('.', ','))
