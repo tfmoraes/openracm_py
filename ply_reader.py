@@ -5,6 +5,7 @@ import sys
 
 EVENT_VERTEX = 1
 EVENT_FACE = 2
+EVENT_HEADER = 3
 
 class PlyReader(object):
     def __init__(self, filename):
@@ -20,6 +21,7 @@ class PlyReader(object):
                     n_faces = int(line.split()[2])
                 elif line.startswith('end_header'):
                     break
+            yield (EVENT_HEADER, (n_vertex, n_faces))
 
             # reading vertex
             v_id = 0

@@ -20,7 +20,7 @@ cdef int BLACK = 2
 
 cdef float K1 = 1.0
 cdef float K2 = 0.5
-cdef float K3 = 1.3
+cdef float K3 = 3.0
 
 def _count_degree(ct, v_id):
     c = ct.get_corner_v(v_id)
@@ -104,21 +104,34 @@ cdef list _get_unrenderable_faces_in_buffer_connected_v(CornerTable ct, int vfoc
     return output
 
 
-cdef _calc_c2(CornerTable ct, int vfocus, list v_w, list v_g, dict v_status):
-    return len(_get_unrenderable_faces_in_buffer_connected_v(ct, vfocus, v_g,
-                                                             v_w, v_status))
+cdef int _calc_c2(CornerTable ct, int vfocus, list v_w, list v_g, dict v_status, dict f_status):
+    cdef int f, c
+    c = 0
+    for f in ct.get_faces_connected_to_v(vfocus):
+        if f_status.get(f, 0) == 0:
+            c += 1
+    #return len(_get_unrenderable_faces_in_buffer_connected_v(ct, vfocus, v_g,
+                                                             #v_w, v_status))
+    return c
 
 cdef tuple _calc_c1_c3(CornerTable ct, int vfocus, list v_w, list v_g, list
                        F_output, dict v_status, dict f_status, int buffer_size):
     cdef list v_ws = v_w[:]
     cdef list v_gs = v_g[:]
     cdef dict v_status_s = v_status.copy()
-    cdef dict f_status_s = f_status
+    cdef dict f_status_s = f_status.copy()
     #cdef list F_output_s = F_output[:]
     cdef int c1 = 0
     cdef int f, fr, vl, c3, i
-    for f in get_unrendered_faces_connected_v(ct, vfocus, f_status_s):
-        for vl in _get_white_bounding_vertices(ct, v_ws, f, v_status_s):
+
+    for f in ct.get_faces_connected_to_v(vfocus):
+        if f_status_s.get(f, 0):
+            continue
+        #for vl in _get_white_bounding_vertices(ct, v_w, f, v_status):
+        for c_id in ct.iterate_triangle_corner(f):
+            vl = ct.V[c_id]
+            if v_status_s.get(vl, WHITE) != WHITE:
+                continue
             if len(v_gs) == buffer_size:
                 va = v_gs.pop(0)
                 v_ws.append(va)
@@ -128,11 +141,12 @@ cdef tuple _calc_c1_c3(CornerTable ct, int vfocus, list v_w, list v_g, list
             v_status_s[vl] = GRAY
             c1 += 1
 
-            #for fr in _get_renderable_faces_in_buffer(ct, v_gs, v_ws, v_status_s):
-                #if (fr != f) and f_status_s.get(fr, 0) == 0:
+            for fr in _get_renderable_faces_in_buffer(ct, v_gs, v_ws, v_status_s):
+                if (fr != f) and f_status_s.get(fr, 0) == 0:
                     ##F_output_s.append(fr)
-                    #f_status_s[fr] = 1
+                    f_status_s[fr] = 1
         #F_output_s.append(f)
+        f_status_s[f] = 1
 
     #v_b.append(v_focus)
 
@@ -151,10 +165,9 @@ cdef int get_minimun_cost_vertex(CornerTable ct, list v_w, list v_g, list
     cdef float c, c3
     cdef float minimun = 1000000
     for v in v_g:
-        c2 = _calc_c2(ct, v, v_w, v_g, v_status)
+        c2 = _calc_c2(ct, v, v_w, v_g, v_status, f_status)
         c1, c3 = _calc_c1_c3(ct, v, v_w, v_g, F_output, v_status, f_status, buffer_size)
         c = c1*K1 + c2*K2 + c3*K3
-        #print c1, c2, c3, c
         if (c < minimun):
             minimun = c
             vmin = v
@@ -195,8 +208,16 @@ cpdef k_cache_reorder(CornerTable ct, buffer_size, model=FIFO):
                                               f_status, buffer_size)
         else:
             vfocus = _get_minimun_degree_vertex(ct, v_w)
-        for f in get_unrendered_faces_connected_v(ct, vfocus, f_status):
-            for vl in _get_white_bounding_vertices(ct, v_w, f, v_status):
+        #for f in get_unrendered_faces_connected_v(ct, vfocus, f_status):
+        for f in ct.get_faces_connected_to_v(vfocus):
+            if f_status.get(f, 0):
+                continue
+            #for vl in _get_white_bounding_vertices(ct, v_w, f, v_status):
+
+            for c_id in ct.iterate_triangle_corner(f):
+                vl = ct.V[c_id]
+                if v_status.get(vl, WHITE) != WHITE:
+                    continue
                 if len(v_g) == buffer_size:
                     va = v_g.pop(0)
                     v_w.insert(0, va)
