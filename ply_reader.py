@@ -21,7 +21,7 @@ class PlyReader(object):
                     n_faces = int(line.split()[2])
                 elif line.startswith('end_header'):
                     break
-            yield (EVENT_HEADER, (n_faces, n_vertex))
+            yield (EVENT_HEADER, (n_vertex, n_faces))
 
             # reading vertex
             v_id = 0
