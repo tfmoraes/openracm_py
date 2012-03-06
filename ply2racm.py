@@ -8,19 +8,20 @@ import ply_reader
 import ply_writer
 import sorter
 import wrl_writer
+import laced_ring
 
 def calculate_d(ct, c_id):
     t = [0.0, 0.0, 0.0]
     n = 0.0
     visited = {}
-    v = ct.get_vertex(c_id)
+    v = ct.get_vertex_position(c_id)
     cc_id = c_id
     while 1:
         cn = ct.next_corner(cc_id)
         cp = ct.previous_corner(cc_id)
 
-        vn = ct.get_vertex(cn)
-        vp = ct.get_vertex(cp)
+        vn = ct.get_vertex_position(cn)
+        vp = ct.get_vertex_position(cp)
 
         if not visited.get(ct.V[cn], 0):
             visited[ct.V[cn]] = 1
@@ -64,6 +65,16 @@ def taubin_smooth(ct, l, m, steps):
             d = D[v]
             ct.vertices[v] = [x + m*y for x,y in zip(vp, d)]
 
+
+def make_vertex_faces(vertices, faces):
+    vertices_faces = {}
+    for f_id, face in enumerate(faces):
+        for v in face:
+            try:
+                vertices_faces[v].append(f_id)
+            except KeyError:
+                vertices_faces[v] = [f_id,]
+    return vertices_faces
 
 def ply2racm(ply_filename, racm_filename, buffer_size, algorithm, cluster_size=200):
     vertices = {}
@@ -116,6 +127,24 @@ def ply2racm(ply_filename, racm_filename, buffer_size, algorithm, cluster_size=2
     elif racm_filename.endswith('.wrl'):
         writer = wrl_writer.WrlWriter(racm_filename)
         writer.from_faces_vertices_list(foutput, vertices)
+
+    #vertices_faces = make_vertex_faces(vertices, [faces[f] for f in sorted(faces)])
+    vertices_faces = make_vertex_faces(vertices, foutput)
+    ct = cy_corner_table.CornerTable()
+    ct.create_corner_from_vertex_face(vertices, foutput,  vertices_faces)
+    #ct.create_corner_from_vertex_face(vertices, [faces[f] for f in sorted(faces)], vertices_faces)
+
+    ring_edges = laced_ring.ring_expander(ct)
+    colours = {}
+    for v in xrange(len(vertices)):
+        if ring_edges.get(v, 0):
+            colours[v] = (255, 0, 0)
+        else:
+            colours[v] = (255, 255, 255)
+
+    writer = ply_writer.PlyWriter(racm_filename)
+    writer.from_faces_vertices_list(foutput, vertices, colours)
+
 
     #print [ct.V[i] for i in ct.O]
     #print 

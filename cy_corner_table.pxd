@@ -7,31 +7,33 @@ cdef class CornerTable:
     cdef public dict C
     cdef public dict vertices
 
-    cpdef create_corner_from_vertex_face(self, dict vertices, dict faces, dict vertices_faces)
+    cpdef create_corner_from_vertex_face(self, dict vertices, list faces, dict vertices_faces)
 
-    cdef void _compute_V(self, dict faces)
+    cdef void _compute_V(self, list faces)
 
-    cdef void _compute_O(self, dict vertices, dict faces, dict vertices_faces)
+    cdef void _compute_O(self, dict vertices, list faces, dict vertices_faces)
 
-    cdef int get_vertex(self, int c_id)
+    cdef list get_vertex_position(self, int c_id)
 
-    cdef int get_triangle(self, int c_id)
+    cpdef int get_vertex(self, int c_id)
+
+    cpdef int get_triangle(self, int c_id)
 
     cdef int get_corner_f(self, int t_id)
 
     cdef int get_corner_v(self, int v_id)
 
-    cdef int next_corner(self, int c_id)
+    cpdef int next_corner(self, int c_id)
 
-    cdef int previous_corner(self, c_id)
+    cpdef int previous_corner(self, c_id)
 
     cpdef tuple iterate_triangle_corner(self, int t_id)
 
-    cdef int get_oposite_corner(self, int c_id)
+    cpdef int get_oposite_corner(self, int c_id)
 
     cdef int get_left_corner(self, int c_id)
 
-    cdef int get_right_corner(self, int c_id)
+    cpdef int get_right_corner(self, int c_id)
 
     cdef int swing(self, int c_id)
 
