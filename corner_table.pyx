@@ -93,7 +93,7 @@ cdef class CornerTable:
     cpdef int get_oposite_corner(self, int c_id):
         return self.O[c_id]
 
-    cdef int get_left_corner(self, int c_id):
+    cpdef int get_left_corner(self, int c_id):
         return self.get_oposite_corner(self.next_corner(c_id))
 
     cpdef int get_right_corner(self, int c_id):
