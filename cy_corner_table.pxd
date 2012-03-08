@@ -19,9 +19,9 @@ cdef class CornerTable:
 
     cpdef int get_triangle(self, int c_id)
 
-    cdef int get_corner_f(self, int t_id)
+    cpdef int get_corner_f(self, int t_id)
 
-    cdef int get_corner_v(self, int v_id)
+    cpdef int get_corner_v(self, int v_id)
 
     cpdef int next_corner(self, int c_id)
 
@@ -35,7 +35,7 @@ cdef class CornerTable:
 
     cpdef int get_right_corner(self, int c_id)
 
-    cdef int swing(self, int c_id)
+    cpdef int swing(self, int c_id)
 
     cpdef list get_faces_connected_to_v(self, Py_ssize_t v_id)
 
