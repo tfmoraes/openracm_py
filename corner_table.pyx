@@ -29,7 +29,6 @@ cdef class CornerTable:
             sys.stdout.write('\rComputing V: %.2f' % ((100.0*nface)/(len(faces)-1)))
             sys.stdout.flush()
             nface += 1
-        print 
 
     cdef void _compute_O(self, dict vertices, list faces, dict vertices_faces):
         cdef int t, c, cn, cp, v0, v1, f0, f1, oface, c_id, n, i

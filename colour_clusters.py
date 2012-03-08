@@ -42,7 +42,7 @@ def clusterize(faces, cluster_size):
         if i % cluster_size == 0:
             c += 1
 
-    print sorted(colours.keys())[:100]
+    print sorted(colours.values())[:100]
     return colours
 
 def main():
