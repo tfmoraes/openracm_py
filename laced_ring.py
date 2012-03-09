@@ -31,7 +31,6 @@ def ring_expander(ct):
     m_t = {}
 
     while 1:
-        print c, ct.get_oposite_corner(s)
         if not m_v.get(ct.get_vertex(c), 0):
             m_v[ct.get_vertex(c)] = 1
             m_t[ct.get_triangle(c)] = 1
@@ -70,35 +69,44 @@ def make_vertex_faces(vertices, faces):
 def expand_ring_into_cluster(ct, ncluster, clusters):
     #s = ct.get_corner_f(random.randint(min(clusters[ncluster]),
                                        #max(clusters[ncluster])))
-    min_, max_ = min(clusters[ncluster]), max(clusters[ncluster])
-    s = ct.get_corner_f(min_)
-
-
-    c = s
-    m_v = {ct.get_vertex(ct.previous_corner(c)): 1,
-           ct.get_vertex(ct.next_corner(c)): 1}
-    m_t = {}
-
     while 1:
-        if not m_v.get(ct.get_vertex(c), 0):
-            if min_ <= ct.get_triangle(c) < max_:
-                m_v[ct.get_vertex(c)] = 1
-                m_t[ct.get_triangle(c)] = 1
-            else:
+        min_, max_ = min(clusters[ncluster]), max(clusters[ncluster])
+        s = ct.get_corner_f(random.randint(min_, max_))
+
+
+        c = s
+        m_v = {ct.get_vertex(ct.previous_corner(c)): 1,
+               ct.get_vertex(ct.next_corner(c)): 1}
+        m_t = {}
+
+        n = 0
+        while 1:
+            if not m_v.get(ct.get_vertex(c), 0):
+                if min_ <= ct.get_triangle(c) < max_:
+                    m_v[ct.get_vertex(c)] = 1
+                    m_t[ct.get_triangle(c)] = 1
+                    n = 0
+                else:
+                    c = ct.get_oposite_corner(c)
+                    n += 1
+
+                    if n > 100:
+                        continue
+            elif not m_t.get(ct.get_triangle(c), 0):
                 c = ct.get_oposite_corner(c)
-        elif not m_t.get(ct.get_triangle(c), 0):
-            c = ct.get_oposite_corner(c)
 
-        #elif (not min_ <= ct.get_triangle(c) < max_) and (not m_t.get(ct.get_triangle(c), 0)) :
-            ##print n, ct.get_triangle(c), min_, max_
-            #c = ct.get_oposite_corner(c)
-            ##c = ct.get_right_corner(c)
-            ##print n, ct.get_triangle(c), min_, max_
-        c = ct.get_right_corner(c)
-        if c == ct.get_oposite_corner(s):
+            #elif (not min_ <= ct.get_triangle(c) < max_) and (not m_t.get(ct.get_triangle(c), 0)) :
+                ##print n, ct.get_triangle(c), min_, max_
+                #c = ct.get_oposite_corner(c)
+                ##c = ct.get_right_corner(c)
+                ##print n, ct.get_triangle(c), min_, max_
+            c = ct.get_right_corner(c)
+            if c == ct.get_oposite_corner(s):
+                break
+        if (float(len(m_t)) / (max_ - min_)) > 0.25:
             break
-
-    print len(m_v), len(m_t)
+        else:
+            print "\tjust a little", len(m_v), len(m_t), float(len(m_t)) / (max_ - min_)
 
     return m_v
 
@@ -141,7 +149,7 @@ def test_laced_ring(vertices, faces, cluster_size):
     ecluster = {}
     for i in sorted(clusters):
         ncluster = expand_ring_into_cluster(ct, i, clusters)
-        #print i, len(ncluster)
+        print i, len(ncluster)
         ecluster.update(ncluster)
 
     colours = {}
