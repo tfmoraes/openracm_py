@@ -1,3 +1,5 @@
+import argparse
+import os
 import sys
 
 import ply_reader
@@ -22,7 +24,7 @@ def read_ply(ply_filename):
 def clusterize(faces, cluster_size):
     init_colour = 20
     end_colour = 256**3 - 1
-    number_cluster = len(faces) / cluster_size
+    number_cluster = len(faces) / float(cluster_size)
     if len(faces) % cluster_size:
         number_cluster += 1
     prop = (number_cluster / len(faces)) *  (end_colour - init_colour)
@@ -46,11 +48,30 @@ def clusterize(faces, cluster_size):
     return colours
 
 def main():
-    vertices, faces = read_ply(sys.argv[1])
-    print sorted(vertices.keys())[:100]
-    colours = clusterize(faces, float(sys.argv[3]))
-    writer = ply_writer.PlyWriter(sys.argv[2])
-    writer.from_faces_vertices_list(faces, vertices, colours)
+    parser = argparse.ArgumentParser(description="Clusterize a mesh.")
+    parser.add_argument('input', help='A Ply input file')
+    parser.add_argument('output', help='A Ply output file')
+    parser.add_argument('-c', dest="cluster_size", type=int, default=1000,
+                        help="The size of each cluster")
+    parser.add_argument('-x', action='store_true', help="Each cluster is saved in different file")
+    args = parser.parse_args()
+
+    vertices, faces = read_ply(args.input)
+    colours = clusterize(faces, args.cluster_size)
+
+    if args.x:
+        number_cluster = len(faces) / float(args.cluster_size)
+        if len(faces) % args.cluster_size:
+            number_cluster += 1
+        
+        basename, extension = os.path.splitext(args.output)
+        for c in xrange(int(number_cluster)):
+            cfaces = faces[c * args.cluster_size: (c + 1) * args.cluster_size]
+            writer = ply_writer.PlyWriter('%s_%d%s' % (basename, c, extension))
+            writer.from_faces_vertices_list(cfaces, vertices, colours)
+    else:
+        writer = ply_writer.PlyWriter(args.output)
+        writer.from_faces_vertices_list(faces, vertices, colours)
 
 
 if __name__ == '__main__':
