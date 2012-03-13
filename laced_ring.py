@@ -69,8 +69,9 @@ def make_vertex_faces(vertices, faces):
 def expand_ring_into_cluster(ct, ncluster, clusters):
     #s = ct.get_corner_f(random.randint(min(clusters[ncluster]),
                                        #max(clusters[ncluster])))
+    n_too_little = 0
+    min_, max_ = min(clusters[ncluster]), max(clusters[ncluster])
     while 1:
-        min_, max_ = min(clusters[ncluster]), max(clusters[ncluster])
         s = ct.get_corner_f(random.randint(min_, max_))
 
 
@@ -88,10 +89,10 @@ def expand_ring_into_cluster(ct, ncluster, clusters):
                     n = 0
                 else:
                     c = ct.get_oposite_corner(c)
+                    if n > 100:
+                        break
                     n += 1
 
-                    if n > 100:
-                        continue
             elif not m_t.get(ct.get_triangle(c), 0):
                 c = ct.get_oposite_corner(c)
 
@@ -107,8 +108,11 @@ def expand_ring_into_cluster(ct, ncluster, clusters):
             break
         else:
             print "\tjust a little", len(m_v), len(m_t), float(len(m_t)) / (max_ - min_)
+            if n_too_little == 100:
+                break
+            n_too_little += 1
 
-    return m_v
+    return m_v, m_t
 
 def hybrid_expand_ring_into_cluster(ct, ncluster, clusters):
     min_, max_ = min(clusters[ncluster]), max(clusters[ncluster])
@@ -148,8 +152,8 @@ def test_laced_ring(vertices, faces, cluster_size):
     print clusters.keys()
     ecluster = {}
     for i in sorted(clusters):
-        ncluster = expand_ring_into_cluster(ct, i, clusters)
-        print i, len(ncluster)
+        ncluster, m_t = expand_ring_into_cluster(ct, i, clusters)
+        print i, len(ncluster), len(m_t), min(m_t), max(m_t)
         ecluster.update(ncluster)
 
     colours = {}
