@@ -22,5 +22,10 @@ def main():
         nc = test_connectivity(ply_reader.GetOutput())
         print f, nc
 
+        clean = vtk.vtkCleanPolyData()
+        clean.SetInput(ply_reader.GetOutput())
+        clean.Update()
+        print clean.GetOutput().GetNumberOfPoints(), clean.GetOutput().GetNumberOfCells()
+
 if __name__ == '__main__':
     main()
