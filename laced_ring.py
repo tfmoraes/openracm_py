@@ -104,10 +104,10 @@ def expand_ring_into_cluster(ct, ncluster, clusters):
             c = ct.get_right_corner(c)
             if c == ct.get_oposite_corner(s):
                 break
-        if (float(len(m_t)) / (max_ - min_)) > 0.25:
+        if (float(len(m_t)) / (max_ - min_)) > 0.50:
             break
         else:
-            print "\tjust a little", len(m_v), len(m_t), float(len(m_t)) / (max_ - min_)
+            #print "\tjust a little", len(m_v), len(m_t), float(len(m_t)) / (max_ - min_)
             if n_too_little == 100:
                 break
             n_too_little += 1
@@ -153,7 +153,7 @@ def test_laced_ring(vertices, faces, cluster_size):
     ecluster = {}
     for i in sorted(clusters):
         ncluster, m_t = expand_ring_into_cluster(ct, i, clusters)
-        print i, len(ncluster), len(m_t), min(m_t), max(m_t)
+        print i, len(ncluster), len(m_t) / float(len(clusters[i]))
         ecluster.update(ncluster)
 
     colours = {}
