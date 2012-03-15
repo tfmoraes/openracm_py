@@ -209,16 +209,32 @@ def skip_dead_end(L, D, I, i):
         i += 1
     return -1
 
+def calc_vertex_score(v, C, s, L, k):
+    if L[v] < 0:
+        return -1.0
+    score = 0.0
+    if s - C.get(v, 0) > k:
+        pass
+    else:
+        if s - C[v] < 3:
+            score = 0.75
+        else:
+            scaler = 1.0 / (k - 3)
+            score = 1.0 - (s - C[v] - 3) * scaler
+            score = score ** 1.5
+
+    valence_boost = L[v] ** 0.5
+    score += 2.0 *  valence_boost
+    return score
+
 def get_next_vertex(I, i, k, N, C, s, L, D):
     n = -1
     p = -1
-    m = 0
+    m = 10000000000
     for v in N:
         if L[v] > 0:
-            p = 0
-            if s-C[v] + 2*L[v] <= k:
-                p = s - C[v]
-            if p > m:
+            p = calc_vertex_score(v, C, s, L, k)
+            if p < m:
                 m = p
                 n = v
     if n == -1:
