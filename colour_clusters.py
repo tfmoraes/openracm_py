@@ -21,31 +21,47 @@ def read_ply(ply_filename):
 
     return vertices, faces
 
-def clusterize(faces, cluster_size):
+def colorize_clusters(faces, clusters):
     init_colour = 20
     end_colour = 256**3 - 1
-    number_cluster = len(faces) / float(cluster_size)
-    if len(faces) % cluster_size:
-        number_cluster += 1
-    prop = (number_cluster / len(faces)) *  (end_colour - init_colour)
+    number_cluster = len(clusters)
+    prop = (number_cluster / float(len(faces))) *  (end_colour - init_colour)
     colours = {}
 
-    i = 0
-    c = 0
-    for f in faces:
-        for v in f:
-            colour = c * prop + init_colour
-            r = round(colour % 256, 0)
-            g = round((colour / 256) % 256, 0)
-            b = round((colour / 256**2) % 256, 0)
-            colours[v] = (r, g, b)
-
-        i += 1
-        if i % cluster_size == 0:
-            c += 1
+    for nc, c in enumerate(clusters):
+        for f in c:
+            for v in faces[f]:
+                colour = nc * prop + init_colour
+                r = round(colour % 256, 0)
+                g = round((colour / 256) % 256, 0)
+                b = round((colour / 256**2) % 256, 0)
+                colours[v] = (r, g, b)
 
     print sorted(colours.values())[:100]
     return colours
+
+def clusterize(faces, cluster_size):
+    cluster_verices = set()
+    cluster = []
+    n_faces = 0
+    for n, f in enumerate(faces):
+        flag_cluster = 0
+        for v in f:
+            if v not in cluster_verices:
+                cluster_verices.add(v)
+                flag_cluster += 1
+        if (flag_cluster == 3) or n_faces == cluster_size:
+            n_faces = 1
+            cluster.append([n, ])
+            cluster_verices = set(f)
+        else:
+            n_faces += 1
+            cluster[-1].append(n)
+    for i in cluster:
+        print i
+
+    return cluster
+
 
 def main():
     parser = argparse.ArgumentParser(description="Clusterize a mesh.")
@@ -57,7 +73,8 @@ def main():
     args = parser.parse_args()
 
     vertices, faces = read_ply(args.input)
-    colours = clusterize(faces, args.cluster_size)
+    clusters = clusterize(faces, args.cluster_size)
+    colours = colorize_clusters(faces, clusters) 
 
     if args.x:
         number_cluster = len(faces) / float(args.cluster_size)
@@ -65,10 +82,9 @@ def main():
             number_cluster += 1
         
         basename, extension = os.path.splitext(args.output)
-        for c in xrange(int(number_cluster)):
-            cfaces = faces[c * args.cluster_size: (c + 1) * args.cluster_size]
-            writer = ply_writer.PlyWriter('%s_%d%s' % (basename, c, extension))
-            writer.from_faces_vertices_list(cfaces, vertices, colours)
+        for n, cfaces in enumerate(clusters):
+            writer = ply_writer.PlyWriter('%s_%d%s' % (basename, n, extension))
+            writer.from_faces_vertices_list([faces[f] for f in cfaces], vertices, colours)
     else:
         writer = ply_writer.PlyWriter(args.output)
         writer.from_faces_vertices_list(faces, vertices, colours)
