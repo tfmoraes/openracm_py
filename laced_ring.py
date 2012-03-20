@@ -7,6 +7,31 @@ import cy_corner_table
 import ply_writer
 import colour_clusters
 
+class LacedRing(object):
+    def __init__(self):
+        #self.vertices = vertices
+        #self.faces = faces
+        #self.edge_ring = edge_ring
+        #self.m_t = m_t
+        self.L = {}
+        self.R = {}
+        self.O = {}
+        self.V = {}
+
+    def make_lr(self, ct, edge_ring, m_t):
+        for e in xrange(len(edge_ring-1)):
+            c = edge_ring[e]
+            if ct.next_corner(c) == edge_ring[e+1]:
+                l = ct.previous_corner(c)
+                L[e] = ct.get_vertex(l)
+                R[e] = ct.get_vertex(ct.get_oposite_corner(l))
+            else:
+                r = ct.next_corner(c)
+                R[e] = ct.get_vertex(r)
+                L[e] = ct.get_vertex(ct.get_oposite_corner(r))
+            
+
+
 def read_ply(ply_filename):
     vertices = {}
     faces = []
@@ -72,14 +97,19 @@ def _expand_ring(ct, s, cluster, min_, max_):
     m_v = {ct.get_vertex(ct.previous_corner(c)): 1,
            ct.get_vertex(ct.next_corner(c)): 1}
     m_t = {}
+    o_v = {0: ct.get_vertex(ct.previous_corner(c)),
+           1: ct.get_vertex(ct.next_corner(c))}
 
     n = 0
+    nv = 2
     while 1:
         if not m_v.get(ct.get_vertex(c), 0):
             if min_ <= ct.get_triangle(c) < max_:
                 m_v[ct.get_vertex(c)] = 1
                 m_t[ct.get_triangle(c)] = 1
+                o_v[nv] = c
                 n = 0
+                nv += 1
             else:
                 c = ct.get_oposite_corner(c)
                 if n > 100:
