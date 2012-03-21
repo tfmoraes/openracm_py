@@ -8,8 +8,8 @@ import ply_writer
 import colour_clusters
 
 class LacedRing(object):
-    def __init__(self):
-        #self.vertices = vertices
+    def __init__(self, vertices):
+        self.vertices = vertices
         #self.faces = faces
         #self.edge_ring = edge_ring
         #self.m_t = m_t
@@ -19,16 +19,42 @@ class LacedRing(object):
         self.V = {}
 
     def make_lr(self, ct, edge_ring, m_t):
-        for e in xrange(len(edge_ring-1)):
+        self.edge_ring = edge_ring
+        self.ct = ct
+        for e in xrange(len(edge_ring)-1):
             c = edge_ring[e]
-            if ct.next_corner(c) == edge_ring[e+1]:
+            cn = edge_ring[e+1]
+
+            if ct.next_corner(c) == cn:
                 l = ct.previous_corner(c)
-                L[e] = ct.get_vertex(l)
-                R[e] = ct.get_vertex(ct.get_oposite_corner(l))
+                self.L[e] = ct.get_vertex(l)
+                self.R[e] = ct.get_vertex(ct.get_oposite_corner(l))
             else:
                 r = ct.next_corner(c)
-                R[e] = ct.get_vertex(r)
-                L[e] = ct.get_vertex(ct.get_oposite_corner(r))
+                self.R[e] = ct.get_vertex(r)
+                self.L[e] = ct.get_vertex(ct.get_oposite_corner(r))
+
+        print self.R
+
+    def to_vertices_faces(self):
+        faces = []
+        for e in xrange(len(self.edge_ring)-1):
+            v = self.edge_ring[e]
+            vn = self.edge_ring[e + 1] 
+            print e, v, self.ct.get_vertex_position(v)
+            faces.append((self.ct.get_vertex(v), self.L[e],
+                         self.ct.get_vertex(vn)))
+            faces.append((self.ct.get_vertex(vn), self.R[e],
+                         self.ct.get_vertex(v)))
+
+        return self.vertices, faces
+                         
+
+    def next_vertex(self, v):
+        return (v + 1) % len(self.edge_ring)
+
+    def previous_ring(self, v):
+        return (v + self.edge_ring - 1) % self.len(edge_ring)
             
 
 
@@ -97,8 +123,8 @@ def _expand_ring(ct, s, cluster, min_, max_):
     m_v = {ct.get_vertex(ct.previous_corner(c)): 1,
            ct.get_vertex(ct.next_corner(c)): 1}
     m_t = {}
-    o_v = {0: ct.get_vertex(ct.previous_corner(c)),
-           1: ct.get_vertex(ct.next_corner(c))}
+    o_v = {0: ct.previous_corner(c),
+           1: ct.next_corner(c)}
 
     n = 0
     nv = 2
@@ -126,7 +152,7 @@ def _expand_ring(ct, s, cluster, min_, max_):
             ##print n, ct.get_triangle(c), min_, max_
         c = ct.get_right_corner(c)
         if c == ct.get_oposite_corner(s):
-            return m_v, m_t
+            return m_v, m_t, o_v
 
 def expand_ring_into_cluster(ct, cluster, pmin):
     #s = ct.get_corner_f(random.randint(min(clusters[ncluster]),
@@ -147,7 +173,7 @@ def expand_ring_into_cluster(ct, cluster, pmin):
     for i in xrange(min_, max_):
         for c in ct.iterate_triangle_corner(i):
             s = c
-            m_v, m_t = _expand_ring(ct, s, cluster, min_, max_)
+            m_v, m_t, o_v = _expand_ring(ct, s, cluster, min_, max_)
             if len(m_v) > gt_t or gt is None:
                 gt_t = len(m_v)
                 gt = s
@@ -159,9 +185,9 @@ def expand_ring_into_cluster(ct, cluster, pmin):
                 #break
             #n_too_little += 1
 
-    m_v, m_t = _expand_ring(ct, gt, cluster, min_, max_)
+    m_v, m_t, o_v = _expand_ring(ct, gt, cluster, min_, max_)
     print nvertices, len(m_v)
-    return m_v, m_t
+    return m_v, m_t, o_v
 
 def hybrid_expand_ring_into_cluster(ct, ncluster, clusters):
     min_, max_ = min(clusters[ncluster]), max(clusters[ncluster])
@@ -200,20 +226,26 @@ def test_laced_ring(vertices, faces, cluster_size, pmin):
     clusters = colour_clusters.clusterize(faces, cluster_size) # clusterize_ct(ct, cluster_size)
     #print clusters.keys()
     ecluster = {}
-    for i, cluster in enumerate(clusters):
-        if len(cluster) > 1:
-            ncluster, m_t = expand_ring_into_cluster(ct, cluster, pmin)
-            print i, len(ncluster), len(m_t) / float(len(cluster))
-            ecluster.update(ncluster)
+    #for i, cluster in enumerate(clusters):
+        #if len(cluster) > 1:
+            #ncluster, m_t = expand_ring_into_cluster(ct, cluster, pmin)
+            #print i, len(ncluster), len(m_t) / float(len(cluster))
+            #ecluster.update(ncluster)
 
-    colours = {}
-    for v in xrange(len(vertices)):
-        if ecluster.get(v, 0):
-            colours[v] = (255, 0, 0)
-        else:
-            colours[v] = (255, 255, 255)
+    #colours = {}
+    #for v in xrange(len(vertices)):
+        #if ecluster.get(v, 0):
+            #colours[v] = (255, 0, 0)
+        #else:
+            #colours[v] = (255, 255, 255)
+    #writer = ply_writer.PlyWriter('/tmp/saida.ply')
+    #writer.from_faces_vertices_list(faces, vertices, colours)
+    ncluster, m_t, o_v = expand_ring_into_cluster(ct, clusters[1], pmin)
+    lr = LacedRing(vertices)
+    lr.make_lr(ct, o_v, m_t)
+    vertices, faces = lr.to_vertices_faces()
     writer = ply_writer.PlyWriter('/tmp/saida.ply')
-    writer.from_faces_vertices_list(faces, vertices, colours)
+    writer.from_faces_vertices_list(faces, vertices)
 
 
 def main():
@@ -222,3 +254,5 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+

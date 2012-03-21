@@ -63,7 +63,7 @@ cdef class CornerTable:
             sys.stdout.flush()
         print 
 
-    cdef list get_vertex_position(self, int c_id):
+    cpdef list get_vertex_position(self, int c_id):
         return self.vertices[self.V[c_id]]
 
     cpdef int get_vertex(self, int c_id):

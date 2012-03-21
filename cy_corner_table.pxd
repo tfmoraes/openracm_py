@@ -13,7 +13,7 @@ cdef class CornerTable:
 
     cdef void _compute_O(self, dict vertices, list faces, dict vertices_faces)
 
-    cdef list get_vertex_position(self, int c_id)
+    cpdef list get_vertex_position(self, int c_id)
 
     cpdef int get_vertex(self, int c_id)
 
