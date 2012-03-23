@@ -154,19 +154,16 @@ def _expand_ring(ct, s, cluster, min_, max_):
     m_v = {ct.get_vertex(ct.previous_corner(c)): 1,
            ct.get_vertex(ct.next_corner(c)): 1}
     m_t = {}
-    edge_ring = {0: ct.previous_corner(c),
-           1: ct.next_corner(c)}
+    edge_ring = [ct.previous_corner(c), ct.next_corner(c)]
 
     n = 0
-    nv = 2
     while 1:
         if not m_v.get(ct.get_vertex(c), 0):
             if min_ <= ct.get_triangle(c) < max_:
                 m_v[ct.get_vertex(c)] = 1
                 m_t[ct.get_triangle(c)] = 1
-                edge_ring[nv] = c
+                edge_ring.append(c)
                 n = 0
-                nv += 1
             else:
                 c = ct.get_oposite_corner(c)
                 if n > 100:
@@ -218,7 +215,13 @@ def expand_ring_into_cluster(ct, cluster, pmin):
 
     m_v, m_t, edge_ring = _expand_ring(ct, gt, cluster, min_, max_)
     print nvertices, len(m_v)
-    return m_v, m_t, edge_ring
+
+    edge_ring_t = []
+    for c in edge_ring:
+        for ci in ct.iterate_triangle_corner(ct.get_triangle(c)):
+            edge_ring_t.append(ci)
+
+    return m_v, m_t, edge_ring_t
 
 def hybrid_expand_ring_into_cluster(ct, ncluster, clusters):
     min_, max_ = min(clusters[ncluster]), max(clusters[ncluster])
