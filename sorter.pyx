@@ -173,9 +173,6 @@ cdef int get_minimun_cost_vertex(CornerTable ct, list v_w, list v_g, list
             vmin = v
     return vmin
 
-def sort_white_vertices(ct, v_w):
-    v_w.sort(key=lambda x: ct.get_vertex_degree(x))
-
 
 cdef list get_unrendered_faces_connected_v(ct, v, f_status):
     cdef int f
@@ -191,7 +188,6 @@ cpdef k_cache_reorder(CornerTable ct, buffer_size, model=FIFO):
     cdef dict v_status, f_status
     cdef int vfocus, vl, vi, fb, fr, f
     v_w = ct.vertices.keys()
-    #sort_white_vertices(ct, v_w)
     
     v_g = []
     v_b = []
