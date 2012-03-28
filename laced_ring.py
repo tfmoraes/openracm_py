@@ -7,6 +7,40 @@ import cy_corner_table
 import ply_writer
 import colour_clusters
 
+class EdgeRinge(object):
+    def __init__(self, ct):
+        self.edge_ring = []
+        self.ct = ct
+        self.edges = {}
+        self.o_edges = {}
+        self.last = None
+
+    def add_corner(self, corner):
+
+        if self.last is None:
+            v = self.ct.get_vertex(corner)
+            self.edges[v] = None
+            self.edge_ring.append(corner)
+
+        elif corner is None:
+            lv = self.ct.get_vertex(self.last)
+            self.edges[lv] = None
+
+        else:
+            v = self.ct.get_vertex(corner)
+            lv = self.ct.get_vertex(self.last)
+            nv = self.ct.get_vertex(self.ct.next_corner(corner))
+
+            self.edges[lv] = nv
+            self.edges[nv] = v
+
+            self.o_edges[nv] = ln
+            self.o_edges[v] = nv
+
+            self.edge_ring.append(corner)
+
+        self.last = corner
+
 class LacedRing(object):
     def __init__(self, vertices):
         self.vertices = vertices
@@ -21,9 +55,9 @@ class LacedRing(object):
     def make_lr(self, ct, edge_ring, m_t):
         self.edge_ring = edge_ring
         self.ct = ct
-        for e in xrange(len(edge_ring)-1):
-            c = edge_ring[e]
-            cn = edge_ring[e+1]
+        for e in xrange(len(edge_ring.edge_ring)-1):
+            c = edge_ring.edge_ring[e]
+            cn = edge_ring.edge_ring[e+1]
 
             if ct.next_corner(c) == cn:
                 l = ct.previous_corner(c)
@@ -35,7 +69,7 @@ class LacedRing(object):
                 self.L[e] = ct.get_vertex(ct.get_oposite_corner(r))
 
         
-        print "OOO", edge_ring[0], ct.get_oposite_corner(edge_ring[ len(edge_ring) - 1 ])
+        #print "OOO", edge_ring[0], ct.get_oposite_corner(edge_ring[ len(edge_ring) - 1 ])
 
         print self.R
 
@@ -44,9 +78,9 @@ class LacedRing(object):
         colours = {}
         lines = []
         cl = {}
-        for e in xrange(len(self.edge_ring)-1):
-            v = self.edge_ring[e]
-            vn = self.edge_ring[self.next_vertex(e)]
+        for e in xrange(len(self.edge_ring.edge_ring)-1):
+            v = self.edge_ring.edge_ring[e]
+            vn = self.edge_ring.edge_ring[self.next_vertex(e)]
             #print e, self.next_vertex(e)
             faces.append((self.ct.get_vertex(v), self.L[e],
                          self.ct.get_vertex(vn)))
@@ -74,18 +108,34 @@ class LacedRing(object):
         cl[lines[-1][2]] = 0, 255, 0
 
 
+        lines = []
+        cv = self.edge_ring.edge_ring[0]
+        v = self.edge_ring.edges[self.ct.get_vertex(cv)]
+        s = v
+        nv = self.edge_ring.edges[v]
+        lines.append((v, nv, v))
+        v = nv
+        while 1:
+            nv = self.edge_ring.edges[v]
+            if nv == self.ct.get_vertex(self.ct.get_oposite_corner(cv)):
+                lines.append((v, nv, v))
+                break
+            lines.append((v, nv, v))
+            v = nv
+
+
         writer = ply_writer.PlyWriter('/tmp/saida_linhas.ply')
         writer.from_faces_vertices_list(lines, self.vertices, cl)
 
-        print "Faces", len(faces), len(self.edge_ring)
+        print "Faces", len(faces), len(self.edge_ring.edge_ring)
         return self.vertices, faces, colours
                          
 
     def next_vertex(self, v):
-        return (v + 1) % len(self.edge_ring)
+        return (v + 1) % len(self.edge_ring.edge_ring)
 
     def previous_ring(self, v):
-        return (v + len(self.edge_ring) - 1) % self.len(self.edge_ring)
+        return (v + len(self.edge_ring.edge_ring) - 1) % self.len(self.edge_ring.edge_ring)
             
 
 
@@ -154,7 +204,10 @@ def _expand_ring(ct, s, cluster, min_, max_):
     m_v = {ct.get_vertex(ct.previous_corner(c)): 1,
            ct.get_vertex(ct.next_corner(c)): 1}
     m_t = {}
-    edge_ring = [ct.previous_corner(c), ct.next_corner(c)]
+    edge_ring = EdgeRinge(ct)
+    #edge_ring.add_corner(ct.previous_corner(c))
+    #edge_ring.add_corner(ct.next_corner(c))
+
 
     n = 0
     while 1:
@@ -162,7 +215,10 @@ def _expand_ring(ct, s, cluster, min_, max_):
             if min_ <= ct.get_triangle(c) < max_:
                 m_v[ct.get_vertex(c)] = 1
                 m_t[ct.get_triangle(c)] = 1
-                edge_ring.append(c)
+                #edge_ring.append(ct.next_corner(c))
+                #edge_ring.append(c)
+                #edge_ring.append(ct.next_corner(c))
+                edge_ring.add_corner(c)
                 n = 0
             else:
                 c = ct.get_oposite_corner(c)
@@ -180,6 +236,7 @@ def _expand_ring(ct, s, cluster, min_, max_):
             ##print n, ct.get_triangle(c), min_, max_
         c = ct.get_right_corner(c)
         if c == ct.get_oposite_corner(s):
+            edge_ring.add_corner(c)
             return m_v, m_t, edge_ring
 
 def expand_ring_into_cluster(ct, cluster, pmin):
@@ -198,7 +255,8 @@ def expand_ring_into_cluster(ct, cluster, pmin):
     gt = None
 
     print "Cluster size", len(cluster)
-    for i in xrange(min_, max_):
+    for i in xrange(10):
+        s = ct.get_corner_f(random.randint(min_, max_))
         for c in ct.iterate_triangle_corner(i):
             s = c
             m_v, m_t, edge_ring = _expand_ring(ct, s, cluster, min_, max_)
@@ -215,13 +273,14 @@ def expand_ring_into_cluster(ct, cluster, pmin):
 
     m_v, m_t, edge_ring = _expand_ring(ct, gt, cluster, min_, max_)
     print nvertices, len(m_v)
+    print edge_ring.edges
 
-    edge_ring_t = []
-    for c in edge_ring:
-        for ci in ct.iterate_triangle_corner(ct.get_triangle(c)):
-            edge_ring_t.append(ci)
+    #edge_ring_t = []
+    #for c in edge_ring:
+        #for ci in ct.iterate_triangle_corner(ct.get_triangle(c)):
+            #edge_ring_t.append(ci)
 
-    return m_v, m_t, edge_ring_t
+    return m_v, m_t, edge_ring
 
 def hybrid_expand_ring_into_cluster(ct, ncluster, clusters):
     min_, max_ = min(clusters[ncluster]), max(clusters[ncluster])
