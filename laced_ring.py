@@ -28,30 +28,37 @@ class EdgeRinge(object):
         nv = self.ct.next_corner(c1)
         pv = self.ct.previous_corner(c1)
 
-        #try:
-            #del self.o_edges[self.edges[v1]]
-            #del self.edges[v1]
-        #except KeyError:
-            #pass
+        v0 = self.ct.get_vertex(v0)
+        v1 = self.ct.get_vertex(v1)
+        nv = self.ct.get_vertex(nv)
+        pv = self.ct.get_vertex(pv)
 
-        #try:
-            #del self.edges[self.o_edges[v1]]
-            #del self.o_edges[v1]
-        #except KeyError:
-            #pass
+        try:
+            del self.edges[self.o_edges[v1]]
+            del self.o_edges[v1]
+            print "NoKeyError"
+        except KeyError:
+            #print "KeyError"
+            pass
+
+        try:
+            del self.edges[self.o_edges[v1]]
+            del self.o_edges[v1]
+        except KeyError:
+            pass
 
 
-        if nv == v0:
-            s = v1
-            v0 = v0
-            v1 = pv
-            v2 = v1
-        elif pv == v0:
-            v0 = v1
-            v1 = nv
-            v2 = pv
-        else:
-            v2 = nv
+        #if nv == v0:
+            #s = v0
+            #v0 = v0
+            #v1 = pv
+            #v2 = v1
+        #elif pv == v0:
+            #v0 = v1
+            #v1 = nv
+            #v2 = pv
+        #else:
+        v2 = nv
         ##if self.last is None:
             ##v = self.ct.get_vertex(corner)
             ##self.edges[v] = None
@@ -88,7 +95,7 @@ class EdgeRinge(object):
         self.edges[v1] = v2
 
         self.o_edges[v1] = v0
-        #self.o_edges[v2] = v1
+        self.o_edges[v2] = v1
 
         #self.o_edges[pv] = nv
         #self.o_edges[v] = pv
@@ -127,7 +134,6 @@ class LacedRing(object):
         
         #print "OOO", edge_ring[0], ct.get_oposite_corner(edge_ring[ len(edge_ring) - 1 ])
 
-        print self.R
 
     def to_vertices_faces(self):
         faces = []
@@ -173,8 +179,8 @@ class LacedRing(object):
         #v = nv
         for v in self.edge_ring.edges:
             nv = self.edge_ring.edges[v]
-            v = self.ct.get_vertex(v)
-            nv = self.ct.get_vertex(nv)
+            #v = self.ct.get_vertex(v)
+            #nv = self.ct.get_vertex(nv)
             #if nv == self.ct.get_vertex(self.ct.get_oposite_corner(cv)):
                 #lines.append((v, nv, v))
                 #break
@@ -268,7 +274,7 @@ def _expand_ring(ct, s, cluster, min_, max_):
 
 
     n = 0
-    last = s
+    last = None
     while 1:
         if not m_v.get(ct.get_vertex(c), 0):
             if min_ <= ct.get_triangle(c) < max_:
@@ -277,8 +283,8 @@ def _expand_ring(ct, s, cluster, min_, max_):
                 #edge_ring.append(ct.next_corner(c))
                 #edge_ring.append(c)
                 #edge_ring.append(ct.next_corner(c))
-                #if last is not None:
-                edge_ring.add_edge((last, c))
+                if last is not None:
+                    edge_ring.add_edge((last, c))
                 n = 0
             else:
                 c = ct.get_oposite_corner(c)
@@ -297,7 +303,8 @@ def _expand_ring(ct, s, cluster, min_, max_):
         last = c
         c = ct.get_right_corner(c)
         if c == ct.get_oposite_corner(s):
-            #edge_ring.add_edge((last, c))
+            edge_ring.add_edge((last, s))
+            #edge_ring.add_edge((c, s))
             return m_v, m_t, edge_ring
 
 def expand_ring_into_cluster(ct, cluster, pmin):
@@ -334,7 +341,6 @@ def expand_ring_into_cluster(ct, cluster, pmin):
 
     m_v, m_t, edge_ring = _expand_ring(ct, gt, cluster, min_, max_)
     print nvertices, len(m_v)
-    print edge_ring.edges
 
     #edge_ring_t = []
     #for c in edge_ring:
