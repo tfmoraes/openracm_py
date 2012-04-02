@@ -119,7 +119,7 @@ class LacedRing(object):
         self.edge_ring = edge_ring
         self.ct = ct
         self.ring = []
-        v0 = self.edge_ring.edges.keys()[2]
+        v0 = self.edge_ring.edges.keys()[0]
         v1 = self.edge_ring.edges[v0]
         vs = v0
         i = 0
@@ -130,7 +130,7 @@ class LacedRing(object):
             while v1 not in (ct.get_vertex(ct.next_corner(c0)), ct.get_vertex(ct.previous_corner(c0))):
                 c0 = ct.swing(c0)
 
-            if ct.next_corner(c0) == c1:
+            if ct.get_vertex(ct.next_corner(c0)) == v1:
                 l = ct.previous_corner(c0)
                 self.L[i] = ct.get_vertex(l)
                 self.R[i] = ct.get_vertex(ct.get_oposite_corner(l))
@@ -147,6 +147,7 @@ class LacedRing(object):
             if v0 == vs:
                 break
         #print "OOO", edge_ring[0], ct.get_oposite_corner(edge_ring[ len(edge_ring) - 1 ])
+        print len(self.L), len(self.edge_ring.edges)
 
 
     def to_vertices_faces(self):
@@ -154,9 +155,9 @@ class LacedRing(object):
         colours = {}
         lines = []
         cl = {}
-        for e in xrange(len(self.ring)):
+        for e in xrange(len(self.ring) - 1):
             v = self.ring[e]
-            vn = self.ring[self.next_vertex(e)]
+            vn = self.ring[e + 1]
             #print e, self.next_vertex(e)
             faces.append((v, self.L[e], vn))
             faces.append((vn, self.R[e], v))
