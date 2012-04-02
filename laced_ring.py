@@ -33,19 +33,19 @@ class EdgeRinge(object):
         nv = self.ct.get_vertex(nv)
         pv = self.ct.get_vertex(pv)
 
-        try:
-            del self.edges[self.o_edges[v1]]
-            del self.o_edges[v1]
-            print "NoKeyError"
-        except KeyError:
-            #print "KeyError"
-            pass
+        #try:
+            #del self.edges[self.o_edges[v1]]
+            #del self.o_edges[v1]
+            #print "NoKeyError"
+        #except KeyError:
+            ##print "KeyError"
+            #pass
 
-        try:
-            del self.edges[self.o_edges[v1]]
-            del self.o_edges[v1]
-        except KeyError:
-            pass
+        #try:
+            #del self.edges[self.o_edges[v1]]
+            #del self.o_edges[v1]
+        #except KeyError:
+            #pass
 
 
         #if nv == v0:
@@ -271,10 +271,11 @@ def _expand_ring(ct, s, cluster, min_, max_):
     edge_ring = EdgeRinge(ct)
     #edge_ring.add_edge(ct.previous_corner(c))
     #edge_ring.add_edge((ct.previous_corner(c), ct.next_corner(c)))
+    #edge_ring.edges[ct.get_vertex(ct.previous_corner(c))] = ct.get_vertex(ct.next_corner(c))
 
 
     n = 0
-    last = None
+    last = ct.next_corner(c)
     while 1:
         if not m_v.get(ct.get_vertex(c), 0):
             if min_ <= ct.get_triangle(c) < max_:
@@ -303,7 +304,8 @@ def _expand_ring(ct, s, cluster, min_, max_):
         last = c
         c = ct.get_right_corner(c)
         if c == ct.get_oposite_corner(s):
-            edge_ring.add_edge((last, s))
+            #edge_ring.edges[ct.get_vertex(last)] = edge_ring.edges[30]
+            #edge_ring.add_edge((c, s))
             #edge_ring.add_edge((c, s))
             return m_v, m_t, edge_ring
 
