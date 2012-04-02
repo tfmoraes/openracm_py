@@ -118,20 +118,34 @@ class LacedRing(object):
     def make_lr(self, ct, edge_ring, m_t):
         self.edge_ring = edge_ring
         self.ct = ct
-        for e in xrange(len(edge_ring.edge_ring)-1):
-            c = edge_ring.edge_ring[e]
-            cn = edge_ring.edge_ring[e+1]
+        self.ring = []
+        v0 = self.edge_ring.edges.keys()[2]
+        v1 = self.edge_ring.edges[v0]
+        vs = v0
+        i = 0
+        while 1:
+            self.ring.append(v0)
+            c0 = ct.get_corner_v(v0)
+            c1 = ct.get_corner_v(v1)
+            while v1 not in (ct.get_vertex(ct.next_corner(c0)), ct.get_vertex(ct.previous_corner(c0))):
+                c0 = ct.swing(c0)
 
-            if ct.next_corner(c) == cn:
-                l = ct.previous_corner(c)
-                self.L[e] = ct.get_vertex(l)
-                self.R[e] = ct.get_vertex(ct.get_oposite_corner(l))
+            if ct.next_corner(c0) == c1:
+                l = ct.previous_corner(c0)
+                self.L[i] = ct.get_vertex(l)
+                self.R[i] = ct.get_vertex(ct.get_oposite_corner(l))
             else:
-                r = ct.next_corner(c)
-                self.R[e] = ct.get_vertex(r)
-                self.L[e] = ct.get_vertex(ct.get_oposite_corner(r))
+                r = ct.next_corner(c0)
+                self.R[i] = ct.get_vertex(r)
+                self.L[i] = ct.get_vertex(ct.get_oposite_corner(r))
 
-        
+            v0 = v1
+            v1 = self.edge_ring.edges[v0]
+
+            i += 1
+
+            if v0 == vs:
+                break
         #print "OOO", edge_ring[0], ct.get_oposite_corner(edge_ring[ len(edge_ring) - 1 ])
 
 
@@ -140,19 +154,17 @@ class LacedRing(object):
         colours = {}
         lines = []
         cl = {}
-        for e in xrange(len(self.edge_ring.edge_ring)-1):
-            v = self.edge_ring.edge_ring[e]
-            vn = self.edge_ring.edge_ring[self.next_vertex(e)]
+        for e in xrange(len(self.ring)):
+            v = self.ring[e]
+            vn = self.ring[self.next_vertex(e)]
             #print e, self.next_vertex(e)
-            faces.append((self.ct.get_vertex(v), self.L[e],
-                         self.ct.get_vertex(vn)))
-            faces.append((self.ct.get_vertex(vn), self.R[e],
-                         self.ct.get_vertex(v)))
+            faces.append((v, self.L[e], vn))
+            faces.append((vn, self.R[e], v))
 
-            colours[self.ct.get_vertex(v)]= 255, 0, 0
-            colours[self.ct.get_vertex(vn)]= 255, 0, 0
-            colours[self.ct.get_vertex(self.L[e])]= 0, 255, 0
-            colours[self.ct.get_vertex(self.R[e])]= 0, 0, 255
+            colours[v] = 255, 0, 0
+            colours[vn] = 255, 0, 0
+            colours[self.L[e]] = 0, 255, 0
+            colours[self.R[e]] = 0, 0, 255
 
             lines.append((self.ct.get_vertex(v), self.ct.get_vertex(vn),
                           self.ct.get_vertex(v)))
@@ -196,10 +208,10 @@ class LacedRing(object):
                          
 
     def next_vertex(self, v):
-        return (v + 1) % len(self.edge_ring.edge_ring)
+        return (v + 1) % len(self.ring)
 
     def previous_ring(self, v):
-        return (v + len(self.edge_ring.edge_ring) - 1) % self.len(self.edge_ring.edge_ring)
+        return (v + len(self.ring) - 1) % self.len(self.ring)
             
 
 
