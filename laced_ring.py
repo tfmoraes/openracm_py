@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: UTF-8 -*-
+import math
 import random
 import sys
+
 import ply_reader
 import cy_corner_table
 import ply_writer
@@ -9,7 +11,6 @@ import colour_clusters
 
 class EdgeRinge(object):
     def __init__(self, ct):
-        self.edge_ring = []
         self.ct = ct
         self.edges = {}
         self.o_edges = {}
@@ -100,7 +101,6 @@ class EdgeRinge(object):
         #self.o_edges[pv] = nv
         #self.o_edges[v] = pv
 
-        self.edge_ring.append(c0)
 
         #self.last = corner
 
@@ -110,6 +110,7 @@ class LacedRing(object):
         #self.faces = faces
         #self.edge_ring = edge_ring
         #self.m_t = m_t
+        self.ring = []
         self.L = {}
         self.R = {}
         self.O = {}
@@ -118,7 +119,6 @@ class LacedRing(object):
     def make_lr(self, ct, edge_ring, m_t):
         self.edge_ring = edge_ring
         self.ct = ct
-        self.ring = []
         v0 = self.edge_ring.edges.keys()[0]
         v1 = self.edge_ring.edges[v0]
         vs = v0
@@ -149,6 +149,18 @@ class LacedRing(object):
         #print "OOO", edge_ring[0], ct.get_oposite_corner(edge_ring[ len(edge_ring) - 1 ])
         print len(self.L), len(self.edge_ring.edges)
 
+    def oposite(self, c_id):
+        """
+        Returns the oposite corner from the given corner.
+        """
+        v_id = math.floor(c_id / 8)
+        if c_id >= 8 * len(self.ring):
+            i = c_id - math.floor(c_id / 4) - 6 * len(self.ring)
+            return self.O[i]
+        elif c_id % 8 == 1:
+            return v_id + 5
+        elif c_id % 8 == 5:
+            return v_id + 1
 
     def to_vertices_faces(self):
         faces = []
@@ -204,7 +216,6 @@ class LacedRing(object):
         writer = ply_writer.PlyWriter('/tmp/saida_linhas.ply')
         writer.from_faces_vertices_list(lines, self.vertices, cl)
 
-        print "Faces", len(faces), len(self.edge_ring.edge_ring)
         return self.vertices, faces, colours
                          
 
