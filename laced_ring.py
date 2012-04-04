@@ -115,6 +115,7 @@ class LacedRing(object):
         self.R = {}
         self.O = {}
         self.V = {}
+        self.C = {}
 
     def make_lr(self, ct, edge_ring, m_t):
         self.edge_ring = edge_ring
@@ -150,18 +151,102 @@ class LacedRing(object):
         #print "OOO", edge_ring[0], ct.get_oposite_corner(edge_ring[ len(edge_ring) - 1 ])
         print len(self.L), len(self.edge_ring.edges), len(self.ring)
 
+    def vertex(self, c_id):
+        """
+        Return the vertex `v' related to the given corner `c_id'.
+        """
+        if c_id >= 8 * len(self.ring):
+            i = c_id - math.floor(c_id / 4) - 6 * len(self.ring)
+            return self.V[i]
+        else:
+            v = math.floor(c / 8)
+            if v % 8 in (0, 6):
+                return self.ring[v]
+            elif v % 8 in (2, 4):
+                return self.ring[self.next_vertex(v)]
+            elif v % 8 == 1:
+                return self.L[v]
+            elif v % 8 == 5:
+                return self.R[v]
+            # TODO: else returns an exception.
+
     def oposite(self, c_id):
         """
         Returns the oposite corner from the given corner.
         """
-        v_id = math.floor(c_id / 8)
+        # TODO: To implement the other cases of oposite operator, when it's not
+        # neither single vertex, nor L nor R vertex.
+        v = math.floor(c_id / 8)
         if c_id >= 8 * len(self.ring):
             i = c_id - math.floor(c_id / 4) - 6 * len(self.ring)
             return self.O[i]
         elif c_id % 8 == 1:
-            return v_id + 5
+            return 8*v + 5
         elif c_id % 8 == 5:
-            return v_id + 1
+            return 8*v + 1
+
+    def corner_vertex(self, v_id):
+        """
+        Returns a corner related to the given `v_id'.
+        """
+        if v >= len(self.ring):
+            return self.C[v - len(self.ring)]
+        elif self.L[v_id] == self.ring[self.next_vertex(self.next_vertex(v_id))]:
+            return 8 * self.next_vertex(v_id) + 1
+        else:
+            return 8 * v_id
+
+    def triangle(self, c_id):
+        """
+        Returns the triangle related to the given corner `c_id'.
+        """
+        return math.floor(c_id/4)
+
+    def corner_triangle(self, t_id):
+        """
+        Returns the first corner from the given triangle `t_id'.
+        """
+        return 4 * t_id
+
+    def next_corner(self, c_id):
+        """
+        Returns the next corner from the given corner `c_id'.
+        """
+        if c_id % 4 == 2:
+            return c_id - 2
+        else:
+            return c_id + 1
+
+    def previous_corner(self, c_id):
+        """
+        Returns the previous corner from the given corner `c_id'.
+        """
+        if c_id % 4 == 0:
+            return c_id + 2
+        else:
+            return c_id - 1
+
+    def left_corner(self, c_id):
+        """
+        Returns the corner on left of the given `c_id'.
+        """
+        return self.oposite(self.next_corner(c_id))
+
+    def right_corner(self, c_id):
+        """
+        Returns the corner on right of the given `c_id'.
+        """
+        return self.oposite(self.previous_corner(c_id))
+
+
+    def swing(self, c_id):
+        """
+        Swings around the given corner `c_id' in the clockwise order. It
+        returns the next corner related to the same vertex from c_id in next
+        triangle around that vertex in clockwise order.
+        """
+        return self.next_corner(self.oposite(self.next_corner(c_id)))
+
 
     def to_vertices_faces(self):
         faces = []
