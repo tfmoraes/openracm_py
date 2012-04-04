@@ -145,9 +145,10 @@ class LacedRing(object):
             i += 1
 
             if v0 == vs:
+                self.ring.append(v0)
                 break
         #print "OOO", edge_ring[0], ct.get_oposite_corner(edge_ring[ len(edge_ring) - 1 ])
-        print len(self.L), len(self.edge_ring.edges)
+        print len(self.L), len(self.edge_ring.edges), len(self.ring)
 
     def oposite(self, c_id):
         """
@@ -167,9 +168,9 @@ class LacedRing(object):
         colours = {}
         lines = []
         cl = {}
-        for e in xrange(len(self.ring) - 1):
+        for e in xrange(len(self.ring)- 1):
             v = self.ring[e]
-            vn = self.ring[e + 1]
+            vn = self.ring[self.next_vertex(e)]
             #print e, self.next_vertex(e)
             faces.append((v, self.L[e], vn))
             faces.append((vn, self.R[e], v))
@@ -186,15 +187,6 @@ class LacedRing(object):
             cl[self.ct.get_vertex(vn)]= 255,255,255
             cl[self.ct.get_vertex(v)]=  255,255,255
 
-        cl[lines[0][0]] = 255, 0, 255
-        cl[lines[0][1]] = 255, 0, 255
-        cl[lines[0][2]] = 255, 0, 255
-
-        cl[lines[-1][0]] = 0, 255, 0
-        cl[lines[-1][1]] = 0, 255, 0
-        cl[lines[-1][2]] = 0, 255, 0
-
-
         lines = []
         #cv = self.edge_ring.edge_ring[0]
         #v = self.edge_ring.edges[self.ct.get_vertex(cv)]
@@ -202,8 +194,11 @@ class LacedRing(object):
         #nv = self.edge_ring.edges[v]
         #lines.append((v, nv, v))
         #v = nv
-        for v in self.edge_ring.edges:
-            nv = self.edge_ring.edges[v]
+        for i in xrange(len(self.ring) - 1):
+            v = self.ring[i]
+            nv = self.ring[i + 1]
+            cl[v]=  255,255,255
+            cl[nv]= 255,255,255
             #v = self.ct.get_vertex(v)
             #nv = self.ct.get_vertex(nv)
             #if nv == self.ct.get_vertex(self.ct.get_oposite_corner(cv)):
@@ -212,6 +207,8 @@ class LacedRing(object):
             lines.append((v, nv, v))
             #v = nv
 
+        cl[self.ring[0]] = 255, 0, 0
+        cl[self.ring[-1]] = 0, 255, 0
 
         writer = ply_writer.PlyWriter('/tmp/saida_linhas.ply')
         writer.from_faces_vertices_list(lines, self.vertices, cl)
