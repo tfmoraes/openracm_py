@@ -145,7 +145,7 @@ class LacedRing(object):
             i += 1
 
             if v0 == vs:
-                self.ring.append(v0)
+                #self.ring.append(v0)
                 break
         #print "OOO", edge_ring[0], ct.get_oposite_corner(edge_ring[ len(edge_ring) - 1 ])
         print len(self.L), len(self.edge_ring.edges), len(self.ring)
@@ -168,10 +168,9 @@ class LacedRing(object):
         colours = {}
         lines = []
         cl = {}
-        for e in xrange(len(self.ring)- 1):
+        for e in xrange(len(self.ring)):
             v = self.ring[e]
             vn = self.ring[self.next_vertex(e)]
-            #print e, self.next_vertex(e)
             faces.append((v, self.L[e], vn))
             faces.append((vn, self.R[e], v))
 
@@ -194,9 +193,9 @@ class LacedRing(object):
         #nv = self.edge_ring.edges[v]
         #lines.append((v, nv, v))
         #v = nv
-        for i in xrange(len(self.ring) - 1):
+        for i in xrange(len(self.ring)):
             v = self.ring[i]
-            nv = self.ring[i + 1]
+            nv = self.ring[self.next_vertex(i)]
             cl[v]=  255,255,255
             cl[nv]= 255,255,255
             #v = self.ct.get_vertex(v)
