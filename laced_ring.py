@@ -90,7 +90,7 @@ class LacedRing(object):
             if v % 8 in (0, 6):
                 return self.ring[v]
             elif v % 8 in (2, 4):
-                return self.ring[self.next_vertex(v)]
+                return self.ring[self.next_vertex_ring(v)]
             elif v % 8 == 1:
                 return self.L[v]
             elif v % 8 == 5:
@@ -118,8 +118,8 @@ class LacedRing(object):
         """
         if v >= len(self.ring):
             return self.C[v - len(self.ring)]
-        elif self.L[v_id] == self.ring[self.next_vertex(self.next_vertex(v_id))]:
-            return 8 * self.next_vertex(v_id) + 1
+        elif self.L[v_id] == self.ring[self.next_vertex_ring(self.next_vertex_ring(v_id))]:
+            return 8 * self.next_vertex_ring(v_id) + 1
         else:
             return 8 * v_id
 
@@ -174,6 +174,17 @@ class LacedRing(object):
         """
         return self.next_corner(self.oposite(self.next_corner(c_id)))
 
+    def next_vertex_ring(self, v):
+        """
+        Returns the next vertex on the edge ring for vertex `v'
+        """
+        return (v + 1) % len(self.ring)
+
+    def previous_vertex_ring(self, v):
+        """
+        Returns the previous vertex on the edge ring for vertex `v'
+        """
+        return (v + len(self.ring) - 1) % self.len(self.ring)
 
     def to_vertices_faces(self):
         faces = []
@@ -182,7 +193,7 @@ class LacedRing(object):
         cl = {}
         for e in xrange(len(self.ring)):
             v = self.ring[e]
-            vn = self.ring[self.next_vertex(e)]
+            vn = self.ring[self.next_vertex_ring(e)]
             faces.append((v, self.L[e], vn))
             faces.append((vn, self.R[e], v))
 
@@ -207,7 +218,7 @@ class LacedRing(object):
         #v = nv
         for i in xrange(len(self.ring)):
             v = self.ring[i]
-            nv = self.ring[self.next_vertex(i)]
+            nv = self.ring[self.next_vertex_ring(i)]
             cl[v]=  255,255,255
             cl[nv]= 255,255,255
             #v = self.ct.get_vertex(v)
@@ -227,11 +238,6 @@ class LacedRing(object):
         return self.vertices, faces, colours
                          
 
-    def next_vertex(self, v):
-        return (v + 1) % len(self.ring)
-
-    def previous_ring(self, v):
-        return (v + len(self.ring) - 1) % self.len(self.ring)
             
 
 
