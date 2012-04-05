@@ -13,96 +13,23 @@ class EdgeRinge(object):
     def __init__(self, ct):
         self.ct = ct
         self.edges = {}
-        self.o_edges = {}
-        self.last = None
 
     def add_edge(self, edge):
 
         c0, c1 = edge
 
-        v0 = c0
-        v1 = c1
-        #try:
-            #lv = self.ct.get_vertex(self.last)
-        #except TypeError:
-            #lv = v
-        nv = self.ct.next_corner(c1)
-        pv = self.ct.previous_corner(c1)
+        nc = self.ct.next_corner(c1)
+        pc = self.ct.previous_corner(c1)
 
-        v0 = self.ct.get_vertex(v0)
-        v1 = self.ct.get_vertex(v1)
-        nv = self.ct.get_vertex(nv)
-        pv = self.ct.get_vertex(pv)
-
-        #try:
-            #del self.edges[self.o_edges[v1]]
-            #del self.o_edges[v1]
-            #print "NoKeyError"
-        #except KeyError:
-            ##print "KeyError"
-            #pass
-
-        #try:
-            #del self.edges[self.o_edges[v1]]
-            #del self.o_edges[v1]
-        #except KeyError:
-            #pass
-
-
-        #if nv == v0:
-            #s = v0
-            #v0 = v0
-            #v1 = pv
-            #v2 = v1
-        #elif pv == v0:
-            #v0 = v1
-            #v1 = nv
-            #v2 = pv
-        #else:
+        v0 = self.ct.get_vertex(c0)
+        v1 = self.ct.get_vertex(c1)
+        nv = self.ct.get_vertex(nc)
+        pv = self.ct.get_vertex(pc)
         v2 = nv
-        ##if self.last is None:
-            ##v = self.ct.get_vertex(corner)
-            ##self.edges[v] = None
-            ##self.edge_ring.append(corner)
-
-        ##elif corner is None:
-            ##lv = self.ct.get_vertex(self.last)
-            ##self.edges[lv] = None
-
-        ##else:
-
-            ###try:
-                ###self.edges[self.o_edges[v]] = nv
-                ###self.edges[nv] = lv
-
-                ###self.o_edges[nv] = v
-                ###self.o_edges[lv] = nv
-                ###print "No Error"
-            ###except KeyError:
-
-        ##try:
-            ##del self.o_edges[self.edges[v]]
-            ##del self.edges[v]
-        ##except:
-            ##pass
-
-        ##try:
-            ##del self.edges[self.o_edges[v]]
-            ##del self.o_edges[v]
-        ##except:
-            ##pass
 
         self.edges[v0] = v1
         self.edges[v1] = v2
 
-        self.o_edges[v1] = v0
-        self.o_edges[v2] = v1
-
-        #self.o_edges[pv] = nv
-        #self.o_edges[v] = pv
-
-
-        #self.last = corner
 
 class LacedRing(object):
     def __init__(self, vertices):
