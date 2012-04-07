@@ -15,7 +15,6 @@ class EdgeRinge(object):
         self.edges = {}
 
     def add_edge(self, edge):
-
         c0, c1 = edge
 
         nc = self.ct.next_corner(c1)
@@ -32,6 +31,10 @@ class EdgeRinge(object):
 
 
 class LacedRing(object):
+    """
+    This class is a implementation of the Laced Ring from the paper
+    "LR: Compact Connectivity Representation for Triangle Meshes".
+    """
     def __init__(self, vertices):
         self.vertices = vertices
         #self.faces = faces
@@ -75,8 +78,43 @@ class LacedRing(object):
             if v0 == vs:
                 #self.ring.append(v0)
                 break
+        self._handle_t0(ct, edge_ring)
         #print "OOO", edge_ring[0], ct.get_oposite_corner(edge_ring[ len(edge_ring) - 1 ])
         print len(self.L), len(self.edge_ring.edges), len(self.ring)
+
+    def _handle_t0(self, ct, edge_ring):
+        t0_triangles = set()
+        for t_id in xrange(len(ct.V) / 3):
+            c, nc, pc = ct.iterate_triangle_corner(t_id)
+            v, nv, pv = [ct.get_vertex(i) for i in (c, nc, pc)]
+            if not (edge_ring.edges.get(v, -1) == nv \
+               or edge_ring.edges.get(nv, -1) == pv \
+               or edge_ring.edges.get(pv, -1) == v \
+               or edge_ring.edges.get(nv, -1) == v \
+               or edge_ring.edges.get(pv, -1) == nv \
+               or edge_ring.edges.get(v, -1) == pv \
+               ):
+                t0_triangles.add(t_id)
+
+        print "================================"
+        print t0_triangles
+
+        c_id = len(self.ring)
+        while t0_triangles:
+            t_id = t0_triangles.pop()
+            c, nc, pc = ct.iterate_triangle_corner(t_id)
+            v, nv, pv = [ct.get_vertex(i) for i in (c, nc, pc)]
+            self.V[c_id] = v
+            self.V[c_id + 1] = nv
+            self.V[c_id + 2] = pv
+
+            self.O[c_id] = ct.get_oposite_corner(c)
+            self.O[c_id + 1] = ct.get_oposite_corner(nc)
+            self.O[c_id + 2] = ct.get_oposite_corner(nv)
+            c_id += 3
+
+
+
 
     def vertex(self, c_id):
         """
