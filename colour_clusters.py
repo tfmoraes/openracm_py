@@ -63,6 +63,40 @@ def clusterize(faces, cluster_size):
     return cluster
 
 
+def save_clusters(clusters, vertices, faces, filename):
+    counts = {}
+    for f in faces:
+        for v in f:
+            try:
+                counts[v] += 1
+            except KeyError:
+                counts[v] = 1
+
+    with file(filename, 'w') as cfile:
+        working_vertex = {}
+        for cluster in sorted(clusters):
+            for f in sorted(cluster):
+                for v in faces[f]:
+                    if v not in working_vertex:
+                        cfile.write('v %f, %f, %f\n' % tuple(vertices[v]))
+                        working_vertex[v] = True
+                
+                fline = []
+                for v in faces[f]:
+                    counts[v] -= 1
+                    if counts[v] == 0:
+                        fline.append(-v)
+                    else:
+                        fline.append(v)
+                cfile.write('f %d, %d, %d\n' % tuple(fline))
+
+            cfile.write('===============================================\n\n')
+                        
+
+
+
+
+
 def main():
     parser = argparse.ArgumentParser(description="Clusterize a mesh.")
     parser.add_argument('input', help='A Ply input file')
@@ -86,8 +120,9 @@ def main():
             writer = ply_writer.PlyWriter('%s_%d%s' % (basename, n, extension))
             writer.from_faces_vertices_list([faces[f] for f in cfaces], vertices, colours)
     else:
-        writer = ply_writer.PlyWriter(args.output)
-        writer.from_faces_vertices_list(faces, vertices, colours)
+        #writer = ply_writer.PlyWriter(args.output)
+        #writer.from_faces_vertices_list(faces, vertices, colours)
+        save_clusters(clusters, vertices, faces, args.output)
 
 
 if __name__ == '__main__':
