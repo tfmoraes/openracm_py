@@ -1,4 +1,5 @@
 import argparse
+import bsddb
 import os
 import sys
 
@@ -62,6 +63,8 @@ def clusterize(faces, cluster_size):
 
     return cluster
 
+    
+
 
 def save_clusters(clusters, vertices, faces, filename):
     counts = {}
@@ -72,29 +75,42 @@ def save_clusters(clusters, vertices, faces, filename):
             except KeyError:
                 counts[v] = 1
 
+    index_vertices_file = os.path.splitext(filename)[0] + '_v.hdr'
+    index_clusters_file = os.path.splitext(filename)[0] + '_c.hdr'
+    index_vertices = bsddb.btopen(index_vertices_file)
+    index_clusters = bsddb.btopen(index_clusters_file)
+    
     with file(filename, 'w') as cfile:
         working_vertex = {}
-        for cluster in sorted(clusters):
+        cfile.write('Number of cluster: %d\n' % len(clusters))
+        cfile.write('Number of vertices: %d\n' % len(vertices))
+        cfile.write('Number of faces: %d\n' % len(faces))
+        for ncluster, cluster in enumerate(sorted(clusters)):
+            init_cluster = cfile.tell()
             for f in sorted(cluster):
                 for v in faces[f]:
                     if v not in working_vertex:
-                        cfile.write('v %f, %f, %f\n' % tuple(vertices[v]))
+                        cfile.write('v %d ' % v)
+                        cfile.write('%f %f %f\n' % tuple(vertices[v]))
                         working_vertex[v] = True
+                        index_vertices[str(v)] = str(ncluster)
                 
                 fline = []
                 for v in faces[f]:
                     counts[v] -= 1
                     if counts[v] == 0:
                         fline.append(-v)
+                        del working_vertex[v]
                     else:
                         fline.append(v)
-                cfile.write('f %d, %d, %d\n' % tuple(fline))
+                cfile.write('f %d ' % f)
+                cfile.write('%d %d %d\n' % tuple(fline))
 
-            cfile.write('===============================================\n\n')
-                        
-
-
-
+            cluster_size = cfile.tell() - init_cluster
+            index_clusters[str(ncluster)] = "%d %d %d %d" % (init_cluster,
+                                                             cluster_size,
+                                                             sorted(cluster)[0],
+                                                             sorted(cluster)[-1])
 
 
 def main():
