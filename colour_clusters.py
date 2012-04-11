@@ -2,15 +2,32 @@ import argparse
 import bsddb
 import os
 import sys
+import tempfile
+
+import numpy as np
 
 import ply_reader
 import ply_writer
 
 def read_ply(ply_filename):
-    vertices = {}
-    faces = []
+    vfile = tempfile.mktemp()
+    ffile = tempfile.mktemp()
     reader = ply_reader.PlyReader(ply_filename)
+    
     v_id = 0
+    f_id = 0
+
+    # Reading the header
+    for evt, data in reader.read():
+        if evt == ply_reader.EVENT_HEADER:
+            n_vertices, n_faces = data
+            vertices = np.memmap(vfile, dtype='float64', shape = (n_vertices,3),
+                                mode='w+')
+            faces = np.memmap(ffile, dtype='int64', shape = (n_faces,3),
+                              mode='w+')
+            break
+
+    # Reading the vertices and faces
     for evt, data in reader.read():
         if evt == ply_reader.EVENT_VERTEX:
             current_vertex = data
@@ -18,7 +35,8 @@ def read_ply(ply_filename):
             v_id += 1
 
         elif evt == ply_reader.EVENT_FACE:
-            faces.append(data)
+            faces[f_id] = data
+            f_id += 1
 
     return vertices, faces
 
@@ -58,12 +76,7 @@ def clusterize(faces, cluster_size):
         else:
             n_faces += 1
             cluster[-1].append(n)
-    for i in cluster:
-        print i
-
     return cluster
-
-    
 
 
 def save_clusters(clusters, vertices, faces, filename):
@@ -124,7 +137,7 @@ def main():
 
     vertices, faces = read_ply(args.input)
     clusters = clusterize(faces, args.cluster_size)
-    colours = colorize_clusters(faces, clusters) 
+    #colours = colorize_clusters(faces, clusters) 
 
     if args.x:
         number_cluster = len(faces) / float(args.cluster_size)
