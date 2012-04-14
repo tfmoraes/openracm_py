@@ -35,8 +35,8 @@ class LacedRing(object):
     This class is a implementation of the Laced Ring from the paper
     "LR: Compact Connectivity Representation for Triangle Meshes".
     """
-    def __init__(self, vertices):
-        self.vertices = vertices
+    def __init__(self):
+        self.vertices = []
         #self.faces = faces
         #self.edge_ring = edge_ring
         #self.m_t = m_t
@@ -47,7 +47,30 @@ class LacedRing(object):
         self.V = {}
         self.C = {}
 
+    def reorder_vertices(self, ct, edge_ring):
+        v0 = edge_ring.edges.keys()[0]
+        v1 = edge_ring.edges[v0]
+        vs = v0
+        i = 0
+        map_ct_lr = {}
+        while 1:
+            self.vertices.append(ct.vertices[v0])
+            map_ct_lr[v0] = i
+
+            i += 1
+            v0 = v1
+            v1 = edge_ring.edges[v0]
+
+            if v0 == vs:
+                #self.ring.append(v0)
+                break
+            
+        return map_ct_lr
+
+
     def make_lr(self, ct, edge_ring, m_t):
+        map_ct_lr = self.reorder_vertices(ct, edge_ring)
+
         self.edge_ring = edge_ring
         self.ct = ct
         v0 = self.edge_ring.edges.keys()[0]
@@ -479,11 +502,11 @@ def test_laced_ring(vertices, faces, cluster_size, pmin):
     #writer = ply_writer.PlyWriter('/tmp/saida.ply')
     #writer.from_faces_vertices_list(faces, vertices, colours)
     ncluster, m_t, edge_ring = expand_ring_into_cluster(ct, clusters[0], pmin)
-    lr = LacedRing(vertices)
+    lr = LacedRing()
     lr.make_lr(ct, edge_ring, m_t)
-    vertices, faces, colours = lr.to_vertices_faces()
-    writer = ply_writer.PlyWriter('/tmp/saida.ply')
-    writer.from_faces_vertices_list(faces, vertices, colours)
+    #vertices, faces, colours = lr.to_vertices_faces()
+    #writer = ply_writer.PlyWriter('/tmp/saida.ply')
+    #writer.from_faces_vertices_list(faces, vertices, colours)
 
 
 def main():
