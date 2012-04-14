@@ -39,16 +39,28 @@ class PlyWriter(object):
         with file(self.filename, 'w') as ply_file:
             self._write_header(ply_file, len(vertices), len(faces),
                                colours is not None)
-            for k, v in vertices.items():
-                if colours is not None:
-                    ply_file.write((' '.join(['%f' % i for i in v[:3]])).replace('.', ','))
-                    try:
-                        ply_file.write(' %d %d %d 255\n' % colours[k])
-                    except KeyError:
-                        ply_file.write(' %d %d %d 255\n' % (0, 0, 0))
-                else:
-                    ply_file.write((' '.join(['%f' % i for i in v[:3]]) +
-                                    '\n').replace('.', ','))
+            if isinstance(vertices, dict):
+                for k, v in vertices.items():
+                    if colours is not None:
+                        ply_file.write((' '.join(['%f' % i for i in v[:3]])).replace('.', ','))
+                        try:
+                            ply_file.write(' %d %d %d 255\n' % colours[k])
+                        except KeyError:
+                            ply_file.write(' %d %d %d 255\n' % (0, 0, 0))
+                    else:
+                        ply_file.write((' '.join(['%f' % i for i in v[:3]]) +
+                                        '\n').replace('.', ','))
+            else:
+                for k, v in enumerate(vertices):
+                    if colours is not None:
+                        ply_file.write((' '.join(['%f' % i for i in v[:3]])).replace('.', ','))
+                        try:
+                            ply_file.write(' %d %d %d 255\n' % colours[k])
+                        except KeyError:
+                            ply_file.write(' %d %d %d 255\n' % (0, 0, 0))
+                    else:
+                        ply_file.write((' '.join(['%f' % i for i in v[:3]]) +
+                                        '\n').replace('.', ','))
 
             for vx, vy, vz in faces:
                 ply_file.write('3 %d %d %d\n' % (vx, vy, vz))
