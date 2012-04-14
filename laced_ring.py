@@ -53,9 +53,11 @@ class LacedRing(object):
         vs = v0
         i = 0
         map_ct_lr = {}
+        map_lr_ct = {}
         while 1:
             self.vertices.append(ct.vertices[v0])
             map_ct_lr[v0] = i
+            map_lr_ct[i] = v0
 
             i += 1
             v0 = v1
@@ -64,44 +66,46 @@ class LacedRing(object):
             if v0 == vs:
                 #self.ring.append(v0)
                 break
+
+        self.mr = i
+        j = 0
+        for v in xrange(len(ct.vertices)):
+            if v not in map_ct_lr:
+                self.vertices.append(ct.vertices[v])
+                map_ct_lr[v] = i
+                map_lr_ct[i] = v
+                self.C[j] = i
+                i += 1
+                j += 1
             
-        return map_ct_lr
+        return map_ct_lr, map_lr_ct
 
 
     def make_lr(self, ct, edge_ring, m_t):
-        map_ct_lr = self.reorder_vertices(ct, edge_ring)
+        map_ct_lr, map_lr_ct = self.reorder_vertices(ct, edge_ring)
 
         self.edge_ring = edge_ring
         self.ct = ct
-        v0 = self.edge_ring.edges.keys()[0]
-        v1 = self.edge_ring.edges[v0]
-        vs = v0
-        i = 0
-        while 1:
-            self.ring.append(v0)
-            c0 = ct.get_corner_v(v0)
-            c1 = ct.get_corner_v(v1)
-            while v1 not in (ct.get_vertex(ct.next_corner(c0)), ct.get_vertex(ct.previous_corner(c0))):
+        
+        for v0 in xrange(self.mr):
+            v1 = self.next_vertex_ring(v0)
+
+            c0 = ct.get_corner_v(map_lr_ct[v0])
+            c1 = ct.get_corner_v(map_lr_ct[v1])
+
+            while map_lr_ct[v1] not in (ct.get_vertex(ct.next_corner(c0)), ct.get_vertex(ct.previous_corner(c0))):
                 c0 = ct.swing(c0)
 
-            if ct.get_vertex(ct.next_corner(c0)) == v1:
+            if ct.get_vertex(ct.next_corner(c0)) == map_lr_ct[v1]:
                 l = ct.previous_corner(c0)
-                self.L[i] = ct.get_vertex(l)
-                self.R[i] = ct.get_vertex(ct.get_oposite_corner(l))
+                self.L[v0] = map_ct_lr[ct.get_vertex(l)]
+                self.R[v0] = map_ct_lr[ct.get_vertex(ct.get_oposite_corner(l))]
             else:
                 r = ct.next_corner(c0)
-                self.R[i] = ct.get_vertex(r)
-                self.L[i] = ct.get_vertex(ct.get_oposite_corner(r))
+                self.R[v0] = map_ct_lr[ct.get_vertex(r)]
+                self.L[v0] = map_ct_lr[ct.get_vertex(ct.get_oposite_corner(r))]
 
-            v0 = v1
-            v1 = self.edge_ring.edges[v0]
-
-            i += 1
-
-            if v0 == vs:
-                #self.ring.append(v0)
-                break
-        self._handle_t0(ct, edge_ring)
+        #self._handle_t0(ct, edge_ring)
         #print "OOO", edge_ring[0], ct.get_oposite_corner(edge_ring[ len(edge_ring) - 1 ])
         print len(self.L), len(self.edge_ring.edges), len(self.ring)
 
@@ -239,62 +243,54 @@ class LacedRing(object):
         """
         Returns the next vertex on the edge ring for vertex `v'
         """
-        return (v + 1) % len(self.ring)
+        return (v + 1) % self.mr
 
     def previous_vertex_ring(self, v):
         """
         Returns the previous vertex on the edge ring for vertex `v'
         """
-        return (v + len(self.ring) - 1) % self.len(self.ring)
+        return (v + self.mr - 1) % self.mr
 
     def to_vertices_faces(self):
         faces = []
         colours = {}
-        lines = []
         cl = {}
-        for e in xrange(len(self.ring)):
-            v = self.ring[e]
-            vn = self.ring[self.next_vertex_ring(e)]
-            faces.append((v, self.L[e], vn))
-            faces.append((vn, self.R[e], v))
+        for v0 in xrange(self.mr):
+            v1 = self.next_vertex_ring(v0)
 
-            colours[v] = 255, 0, 0
-            colours[vn] = 255, 0, 0
-            colours[self.L[e]] = 0, 255, 0
-            colours[self.R[e]] = 0, 0, 255
+            faces.append((v0, self.L[v0], v1))
+            faces.append((v1, self.R[v0], v0))
 
-            lines.append((self.ct.get_vertex(v), self.ct.get_vertex(vn),
-                          self.ct.get_vertex(v)))
+            colours[v0] = 255, 0, 0
+            colours[v1] = 255, 0, 0
+            colours[self.L[v0]] = 0, 255, 0
+            colours[self.R[v0]] = 0, 0, 255
 
-            cl[self.ct.get_vertex(v)]=  255,255,255
-            cl[self.ct.get_vertex(vn)]= 255,255,255
-            cl[self.ct.get_vertex(v)]=  255,255,255
+        #lines = []
+        ##cv = self.edge_ring.edge_ring[0]
+        ##v = self.edge_ring.edges[self.ct.get_vertex(cv)]
+        ##s = v
+        ##nv = self.edge_ring.edges[v]
+        ##lines.append((v, nv, v))
+        ##v = nv
+        #for i in xrange(len(self.ring)):
+            #v = self.ring[i]
+            #nv = self.ring[self.next_vertex_ring(i)]
+            #cl[v]=  255,255,255
+            #cl[nv]= 255,255,255
+            ##v = self.ct.get_vertex(v)
+            ##nv = self.ct.get_vertex(nv)
+            ##if nv == self.ct.get_vertex(self.ct.get_oposite_corner(cv)):
+                ##lines.append((v, nv, v))
+                ##break
+            #lines.append((v, nv, v))
+            ##v = nv
 
-        lines = []
-        #cv = self.edge_ring.edge_ring[0]
-        #v = self.edge_ring.edges[self.ct.get_vertex(cv)]
-        #s = v
-        #nv = self.edge_ring.edges[v]
-        #lines.append((v, nv, v))
-        #v = nv
-        for i in xrange(len(self.ring)):
-            v = self.ring[i]
-            nv = self.ring[self.next_vertex_ring(i)]
-            cl[v]=  255,255,255
-            cl[nv]= 255,255,255
-            #v = self.ct.get_vertex(v)
-            #nv = self.ct.get_vertex(nv)
-            #if nv == self.ct.get_vertex(self.ct.get_oposite_corner(cv)):
-                #lines.append((v, nv, v))
-                #break
-            lines.append((v, nv, v))
-            #v = nv
+        #cl[self.ring[0]] = 255, 0, 0
+        #cl[self.ring[-1]] = 0, 255, 0
 
-        cl[self.ring[0]] = 255, 0, 0
-        cl[self.ring[-1]] = 0, 255, 0
-
-        writer = ply_writer.PlyWriter('/tmp/saida_linhas.ply')
-        writer.from_faces_vertices_list(lines, self.vertices, cl)
+        #writer = ply_writer.PlyWriter('/tmp/saida_linhas.ply')
+        #writer.from_faces_vertices_list(lines, self.vertices, cl)
 
         return self.vertices, faces, colours
                          
@@ -504,9 +500,9 @@ def test_laced_ring(vertices, faces, cluster_size, pmin):
     ncluster, m_t, edge_ring = expand_ring_into_cluster(ct, clusters[0], pmin)
     lr = LacedRing()
     lr.make_lr(ct, edge_ring, m_t)
-    #vertices, faces, colours = lr.to_vertices_faces()
-    #writer = ply_writer.PlyWriter('/tmp/saida.ply')
-    #writer.from_faces_vertices_list(faces, vertices, colours)
+    vertices, faces, colours = lr.to_vertices_faces()
+    writer = ply_writer.PlyWriter('/tmp/saida.ply')
+    writer.from_faces_vertices_list(faces, vertices, colours)
 
 
 def main():
