@@ -44,8 +44,8 @@ class LacedRing(object):
         self.L = {}
         self.R = {}
         self.O = {}
-        self.V = {}
-        self.C = {}
+        self.V = []
+        self.C = []
 
     def reorder_vertices(self, ct, edge_ring):
         v0 = edge_ring.edges.keys()[0]
@@ -74,7 +74,6 @@ class LacedRing(object):
                 self.vertices.append(ct.vertices[v])
                 map_ct_lr[v] = i
                 map_lr_ct[i] = v
-                self.C[j] = i
                 i += 1
                 j += 1
             
@@ -105,11 +104,11 @@ class LacedRing(object):
                 self.R[v0] = map_ct_lr[ct.get_vertex(r)]
                 self.L[v0] = map_ct_lr[ct.get_vertex(ct.get_oposite_corner(r))]
 
-        #self._handle_t0(ct, edge_ring)
+        self._handle_t0(ct, edge_ring, map_ct_lr, map_lr_ct)
         #print "OOO", edge_ring[0], ct.get_oposite_corner(edge_ring[ len(edge_ring) - 1 ])
-        print len(self.L), len(self.edge_ring.edges), len(self.ring)
+        print len(self.L), len(self.edge_ring.edges), self.mr
 
-    def _handle_t0(self, ct, edge_ring):
+    def _handle_t0(self, ct, edge_ring, map_ct_lr, map_lr_ct):
         t0_triangles = set()
         for t_id in xrange(len(ct.V) / 3):
             c, nc, pc = ct.iterate_triangle_corner(t_id)
@@ -126,19 +125,25 @@ class LacedRing(object):
         print "================================"
         print t0_triangles
 
-        c_id = len(self.ring)
+        c_id = 8 * self.mr
         while t0_triangles:
             t_id = t0_triangles.pop()
             c, nc, pc = ct.iterate_triangle_corner(t_id)
             v, nv, pv = [ct.get_vertex(i) for i in (c, nc, pc)]
-            self.V[c_id] = v
-            self.V[c_id + 1] = nv
-            self.V[c_id + 2] = pv
 
-            self.O[c_id] = ct.get_oposite_corner(c)
-            self.O[c_id + 1] = ct.get_oposite_corner(nc)
-            self.O[c_id + 2] = ct.get_oposite_corner(nv)
+            self.V.append(map_ct_lr[v])
+            self.V.append(map_ct_lr[nv])
+            self.V.append(map_ct_lr[pv])
+
             c_id += 3
+
+
+
+        #for v in self.V:
+            #self.O[c_id] = ct.get_oposite_corner(c)
+            #self.O[c_id + 1] = ct.get_oposite_corner(nc)
+            #self.O[c_id + 2] = ct.get_oposite_corner(nv)
+            #c_id += 3
 
 
 
@@ -147,8 +152,8 @@ class LacedRing(object):
         """
         Return the vertex `v' related to the given corner `c_id'.
         """
-        if c_id >= 8 * len(self.ring):
-            i = c_id - math.floor(c_id / 4) - 6 * len(self.ring)
+        if c_id >= 8 * self.mr:
+            i = c_id - math.floor(c_id / 4) - 6 * self.mr
             return self.V[i]
         else:
             v = math.floor(c / 8)
@@ -169,20 +174,24 @@ class LacedRing(object):
         # TODO: To implement the other cases of oposite operator, when it's not
         # neither single vertex, nor L nor R vertex.
         v = math.floor(c_id / 8)
-        if c_id >= 8 * len(self.ring):
-            i = c_id - math.floor(c_id / 4) - 6 * len(self.ring)
+        if c_id >= 8 * self.mr:
+            i = c_id - math.floor(c_id / 4) - 6 * self.mr
             return self.O[i]
         elif c_id % 8 == 1:
             return 8*v + 5
         elif c_id % 8 == 5:
             return 8*v + 1
+        elif self.L[v] == self.L[self.next_vertex_ring(v)]:
+            return 8*self.next_vertex_ring(v) + 2
+        elif self.L[self.previous_vertex_ring(self.L[v])] == self.next_vertex_ring(v):
+            return self.previous_vertex_ring(self.L[v])
 
     def corner_vertex(self, v_id):
         """
-        Returns a corner related to the given `v_id'.
+        Returns a corner related to the given vertex `v_id'.
         """
-        if v >= len(self.ring):
-            return self.C[v - len(self.ring)]
+        if v >= self.mr:
+            return self.C[v - self.mr]
         elif self.L[v_id] == self.ring[self.next_vertex_ring(self.next_vertex_ring(v_id))]:
             return 8 * self.next_vertex_ring(v_id) + 1
         else:
@@ -254,12 +263,14 @@ class LacedRing(object):
     def to_vertices_faces(self):
         faces = []
         colours = {}
-        cl = {}
+        lines = []
         for v0 in xrange(self.mr):
             v1 = self.next_vertex_ring(v0)
 
             faces.append((v0, self.L[v0], v1))
             faces.append((v1, self.R[v0], v0))
+
+            lines.append((v0, v1, v0))
 
             colours[v0] = 255, 0, 0
             colours[v1] = 255, 0, 0
@@ -273,7 +284,7 @@ class LacedRing(object):
         ##nv = self.edge_ring.edges[v]
         ##lines.append((v, nv, v))
         ##v = nv
-        #for i in xrange(len(self.ring)):
+        #for i in xrange(self.mr):
             #v = self.ring[i]
             #nv = self.ring[self.next_vertex_ring(i)]
             #cl[v]=  255,255,255
@@ -289,8 +300,8 @@ class LacedRing(object):
         #cl[self.ring[0]] = 255, 0, 0
         #cl[self.ring[-1]] = 0, 255, 0
 
-        #writer = ply_writer.PlyWriter('/tmp/saida_linhas.ply')
-        #writer.from_faces_vertices_list(lines, self.vertices, cl)
+        writer = ply_writer.PlyWriter('/tmp/saida_linhas.ply')
+        writer.from_faces_vertices_list(lines, self.vertices)
 
         return self.vertices, faces, colours
                          
