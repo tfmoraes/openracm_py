@@ -42,25 +42,25 @@ class PlyWriter(object):
             if isinstance(vertices, dict):
                 for k, v in vertices.items():
                     if colours is not None:
-                        ply_file.write((' '.join(['%f' % i for i in v[:3]])).replace('.', ','))
+                        ply_file.write((' '.join(['%f' % i for i in v[:3]])))
                         try:
                             ply_file.write(' %d %d %d 255\n' % colours[k])
                         except KeyError:
                             ply_file.write(' %d %d %d 255\n' % (0, 0, 0))
                     else:
                         ply_file.write((' '.join(['%f' % i for i in v[:3]]) +
-                                        '\n').replace('.', ','))
+                                        '\n'))
             else:
                 for k, v in enumerate(vertices):
                     if colours is not None:
-                        ply_file.write((' '.join(['%f' % i for i in v[:3]])).replace('.', ','))
+                        ply_file.write((' '.join(['%f' % i for i in v[:3]])))
                         try:
                             ply_file.write(' %d %d %d 255\n' % colours[k])
                         except KeyError:
                             ply_file.write(' %d %d %d 255\n' % (0, 0, 0))
                     else:
                         ply_file.write((' '.join(['%f' % i for i in v[:3]]) +
-                                        '\n').replace('.', ','))
+                                        '\n'))
 
             for vx, vy, vz in faces:
                 ply_file.write('3 %d %d %d\n' % (vx, vy, vz))
