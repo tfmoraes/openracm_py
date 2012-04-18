@@ -46,6 +46,7 @@ class LacedRing(object):
         self.O = {}
         self.V = []
         self.C = []
+        self.number_triangles = 0
 
     def reorder_vertices(self, ct, edge_ring):
         v0 = edge_ring.edges.keys()[0]
@@ -104,6 +105,8 @@ class LacedRing(object):
                 self.R[v0] = map_ct_lr[ct.get_vertex(r)]
                 self.L[v0] = map_ct_lr[ct.get_vertex(ct.get_oposite_corner(r))]
 
+            self.number_triangles += 2
+
         self._handle_t0(ct, edge_ring, map_ct_lr, map_lr_ct)
         #print "OOO", edge_ring[0], ct.get_oposite_corner(edge_ring[ len(edge_ring) - 1 ])
         print len(self.L), len(self.edge_ring.edges), self.mr
@@ -134,38 +137,35 @@ class LacedRing(object):
             self.V.append(map_ct_lr[v])
             self.V.append(map_ct_lr[nv])
             self.V.append(map_ct_lr[pv])
+            self.number_triangles += 1
 
             c_id += 3
 
-
-
-        #for v in self.V:
-            #self.O[c_id] = ct.get_oposite_corner(c)
-            #self.O[c_id + 1] = ct.get_oposite_corner(nc)
-            #self.O[c_id + 2] = ct.get_oposite_corner(nv)
-            #c_id += 3
-
-
-
+        #for c in (8 * self.mr, c_id, 3):
+            #v0 = self.V[c]
+            #v1 = self.V[c + 1]
+            #v2 = self.V[c + 2]
 
     def vertex(self, c_id):
         """
         Return the vertex `v' related to the given corner `c_id'.
         """
         if c_id >= 8 * self.mr:
-            i = c_id - math.floor(c_id / 4) - 6 * self.mr
+            i = int(c_id - math.floor(c_id / 4) - 6 * self.mr)
             return self.V[i]
         else:
-            v = math.floor(c / 8)
-            if v % 8 in (0, 6):
-                return self.ring[v]
-            elif v % 8 in (2, 4):
-                return self.ring[self.next_vertex_ring(v)]
-            elif v % 8 == 1:
+            v = int(math.floor(c_id / 8.0))
+            if c_id % 8 in (0, 6):
+                return v
+            elif c_id % 8 in (2, 4):
+                return self.next_vertex_ring(v)
+            elif c_id % 8 == 1:
                 return self.L[v]
-            elif v % 8 == 5:
+            elif c_id % 8 == 5:
                 return self.R[v]
-            # TODO: else returns an exception.
+            else:
+                raise(Exception("Error"))
+                # TODO: else returns an exception.
 
     def oposite(self, c_id):
         """
@@ -173,7 +173,7 @@ class LacedRing(object):
         """
         # TODO: To implement the other cases of oposite operator, when it's not
         # neither single vertex, nor L nor R vertex.
-        v = math.floor(c_id / 8)
+        v = math.floor(c_id / 8.0)
         if c_id >= 8 * self.mr:
             i = c_id - math.floor(c_id / 4) - 6 * self.mr
             return self.O[i]
@@ -267,15 +267,25 @@ class LacedRing(object):
         for v0 in xrange(self.mr):
             v1 = self.next_vertex_ring(v0)
 
-            faces.append((v0, self.L[v0], v1))
-            faces.append((v1, self.R[v0], v0))
+            #faces.append((v0, self.L[v0], v1))
+            #faces.append((v1, self.R[v0], v0))
 
             lines.append((v0, v1, v0))
 
-            colours[v0] = 255, 0, 0
-            colours[v1] = 255, 0, 0
-            colours[self.L[v0]] = 0, 255, 0
-            colours[self.R[v0]] = 0, 0, 255
+            #colours[v0] = 255, 0, 0
+            #colours[v1] = 255, 0, 0
+            #colours[self.L[v0]] = 0, 255, 0
+            #colours[self.R[v0]] = 0, 0, 255
+
+        for t in xrange(self.number_triangles):
+            c0 = self.corner_triangle(t)
+            c1 = self.next_corner(c0)
+            c2 = self.next_corner(c1)
+
+            v1 = self.vertex(c1)
+            v0 = self.vertex(c0)
+            v2 = self.vertex(c2)
+            faces.append((v0, v1, v2))
 
         #lines = []
         ##cv = self.edge_ring.edge_ring[0]
