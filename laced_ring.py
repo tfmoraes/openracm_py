@@ -98,12 +98,31 @@ class LacedRing(object):
 
             if ct.get_vertex(ct.next_corner(c0)) == map_lr_ct[v1]:
                 l = ct.previous_corner(c0)
-                self.L[v0] = map_ct_lr[ct.get_vertex(l)]
-                self.R[v0] = map_ct_lr[ct.get_vertex(ct.get_oposite_corner(l))]
+                r = ct.get_oposite_corner(l)
+                vl = map_ct_lr[ct.get_vertex(l)]
+                vr = map_ct_lr[ct.get_vertex(r)]
+
             else:
                 r = ct.next_corner(c0)
-                self.R[v0] = map_ct_lr[ct.get_vertex(r)]
-                self.L[v0] = map_ct_lr[ct.get_vertex(ct.get_oposite_corner(r))]
+                l = ct.get_oposite_corner(r)
+                vl = map_ct_lr[ct.get_vertex(l)]
+                vr = map_ct_lr[ct.get_vertex(r)]
+
+            if vl in (self.next_vertex_ring(self.next_vertex_ring(v0)),
+                      self.previous_vertex_ring(v0)):
+                # T2 triangle
+                self.L[v0] = [vl, 2, 0]
+            else:
+                # T1 triangle
+                self.L[v0] = [vl, 1, 0]
+
+            if vr in (self.next_vertex_ring(self.next_vertex_ring(v0)),
+                      self.previous_vertex_ring(v0)):
+                # T2 triangle
+                self.R[v0] = [vr, 2, 0]
+            else:
+                # T1 triangle
+                self.R[v0] = [vr, 1, 0]
 
             self.number_triangles += 2
 
@@ -160,9 +179,9 @@ class LacedRing(object):
             elif c_id % 8 in (2, 4):
                 return self.next_vertex_ring(v)
             elif c_id % 8 == 1:
-                return self.L[v]
+                return self.L[v][0]
             elif c_id % 8 == 5:
-                return self.R[v]
+                return self.R[v][0]
             else:
                 raise(Exception("Error"))
                 # TODO: else returns an exception.
@@ -192,9 +211,9 @@ class LacedRing(object):
         """
         if v >= self.mr:
             return self.C[v - self.mr]
-        elif self.L[v_id] == self.ring[self.next_vertex_ring(self.next_vertex_ring(v_id))]:
+        elif self.L[v_id] == self.next_vertex_ring(self.next_vertex_ring(v_id)):
             return 8 * self.next_vertex_ring(v_id) + 1
-        elif self.R[v_id] == self.ring[self.next_vertex_ring(self.next_vertex_ring(v_id))]:
+        elif self.R[v_id] == self.next_vertex_ring(self.next_vertex_ring(v_id)):
             return 8 * self.next_vertex_ring(v_id) + 1
         else:
             return 8 * v_id
@@ -262,6 +281,14 @@ class LacedRing(object):
         """
         return (v + self.mr - 1) % self.mr
 
+    def is_t2_triangle(self, t_id):
+        if t_id >= 2*self.mr:
+            return False
+        elif t_id % 2:
+            return self.R[t_id/2][1] == 2
+        else:
+            return self.L[t_id/2][1] == 2
+
     def to_vertices_faces(self):
         faces = []
         colours = {}
@@ -279,15 +306,28 @@ class LacedRing(object):
             #colours[self.L[v0]] = 0, 255, 0
             #colours[self.R[v0]] = 0, 0, 255
 
-        for t in xrange(self.number_triangles):
-            c0 = self.corner_triangle(t)
-            c1 = self.next_corner(c0)
-            c2 = self.next_corner(c1)
+        render_next = False
 
-            v1 = self.vertex(c1)
-            v0 = self.vertex(c0)
-            v2 = self.vertex(c2)
-            faces.append((v0, v1, v2))
+        for t in xrange(self.number_triangles):
+            if (not self.is_t2_triangle(t)) or (self.is_t2_triangle(t) and render_next):
+                c0 = self.corner_triangle(t)
+                c1 = self.next_corner(c0)
+                c2 = self.next_corner(c1)
+
+                v1 = self.vertex(c1)
+                v0 = self.vertex(c0)
+                v2 = self.vertex(c2)
+                faces.append((v0, v1, v2))
+
+                colours[v0] = 255, 255, 255
+                colours[v1] = 255, 255, 255
+                colours[v2] = 255, 255, 255
+
+                if self.is_t2_triangle(t):
+                    render_next = False
+            else:
+                if self.is_t2_triangle(t):
+                    render_next = True
 
         #lines = []
         ##cv = self.edge_ring.edge_ring[0]
