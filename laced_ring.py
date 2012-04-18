@@ -194,6 +194,8 @@ class LacedRing(object):
             return self.C[v - self.mr]
         elif self.L[v_id] == self.ring[self.next_vertex_ring(self.next_vertex_ring(v_id))]:
             return 8 * self.next_vertex_ring(v_id) + 1
+        elif self.R[v_id] == self.ring[self.next_vertex_ring(self.next_vertex_ring(v_id))]:
+            return 8 * self.next_vertex_ring(v_id) + 1
         else:
             return 8 * v_id
 
