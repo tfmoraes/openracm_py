@@ -43,7 +43,7 @@ class LacedRing(object):
         self.ring = []
         self.L = {}
         self.R = {}
-        self.O = []
+        self.O = {}
         self.V = []
         self.C = {}
         self.number_triangles = 0
@@ -147,7 +147,7 @@ class LacedRing(object):
         print "================================"
         print t0_triangles
 
-        c_id = 8 * self.mr
+        t_c_id = 8 * self.mr
         while t0_triangles:
             t_id = t0_triangles.pop()
             c, nc, pc = ct.iterate_triangle_corner(t_id)
@@ -158,54 +158,71 @@ class LacedRing(object):
             self.V.append(map_ct_lr[pv])
             self.number_triangles += 1
 
-            self.C[map_ct_lr[v]] = c_id 
-            self.C[map_ct_lr[nv]] = c_id + 1
-            self.C[map_ct_lr[pv]] = c_id + 2
+            self.C[map_ct_lr[v]] = t_c_id 
+            self.C[map_ct_lr[nv]] = t_c_id + 1
+            self.C[map_ct_lr[pv]] = t_c_id + 2
 
-            c_id += 3
+            t_c_id += 4
 
         #for c in (8 * self.mr, c_id, 3):
             #v0 = self.V[c]
             #v1 = self.V[c + 1]
             #v2 = self.V[c + 2]
 
-        for c in xrange(len(self.V)):
-            c_id = self.mr * 8 + c
+        for c_id in xrange(8*self.mr, t_c_id, 4):
             cn = c_id + 1
             cp = c_id + 2
             v = self.vertex(c_id)
             vn = self.vertex(cn)
             vp = self.vertex(cp)
 
-            print v, vn, vp
+            s = set((v, vn, vp))
+            for vi in (v, vn, vp):
+                cs = s - set((vi,))
+                for t in xrange(self.number_triangles):
+                    c0 = self.corner_triangle(t)
+                    c1 = self.next_corner(c0)
+                    c2 = self.next_corner(c1)
 
-            cs = set((vn, vp))
+                    v0 = self.vertex(c0)
+                    v1 = self.vertex(c1)
+                    v2 = self.vertex(c2)
 
-            #o = map_ct_lr[ct.get_vertex(ct.get_oposite_corner(map_lr_ct[c]))]
+                    diff = set((v0, v1, v2)) - cs
 
-            for t in xrange(self.number_triangles):
-                c0 = self.corner_triangle(t)
-                c1 = self.next_corner(c0)
-                c2 = self.next_corner(c1)
+                    if len(diff) == 1:
+                        vo = diff.pop()
+                        if vo == v0 and vo != vi:
+                            o = c0
+                        elif vo == v1 and vo != vi:
+                            o = c1
+                        elif vo == v2 and vo != vi:
+                            o = c2
 
-                v0 = self.vertex(c0)
-                v1 = self.vertex(c1)
-                v2 = self.vertex(c2)
-
-                diff = set((v0, v1, v2)) - cs
-
-                if len(diff) == 1:
-                    vo = diff.pop()
-                    if vo == v0:
-                        o = c0
-                    elif vo == v1:
-                        o = c1
-                    else:
-                        o = c2
-                    self.O.append(o)
-                    break
+                        if vi == v:
+                            self.O[c_id] = o
+                        elif vi == vn:
+                            self.O[cn] = o
+                        elif vi == vp:
+                            self.O[cp] = o
+                        break
             
-        print ">>>", len(self.O), len(self.V)
+        print ">>>", self.mr * 8, len(self.O), len(self.V), self.O, self.V
+
+        print "Testing oposite"
+
+        for t in xrange(self.number_triangles):
+            c0 = self.corner_triangle(t)
+            c1 = self.next_corner(c0)
+            c2 = self.next_corner(c1)
+
+            for c in (c0, c1, c2):
+                o = self.oposite(c)
+                co = self.oposite(o)
+
+                if c != co:
+                    print "Erro", o, co
+
 
     def vertex(self, c_id):
         """
@@ -236,16 +253,18 @@ class LacedRing(object):
         # neither single vertex, nor L nor R vertex.
         v = math.floor(c_id / 8.0)
         if c_id >= 8 * self.mr:
-            i = c_id - math.floor(c_id / 4) - 6 * self.mr
+            i = int(c_id - math.floor(c_id / 4.0) - 6 * self.mr)
             return self.O[i]
         elif c_id % 8 == 1:
             return 8*v + 5
         elif c_id % 8 == 5:
             return 8*v + 1
-        elif self.L[v] == self.L[self.next_vertex_ring(v)]:
+        elif self.L[v][0] == self.L[self.next_vertex_ring(v)][0]:
             return 8*self.next_vertex_ring(v) + 2
-        elif self.L[self.previous_vertex_ring(self.L[v])] == self.next_vertex_ring(v):
-            return self.previous_vertex_ring(self.L[v])
+        elif self.L[self.previous_vertex_ring(self.L[v][0])] == self.next_vertex_ring(v):
+            return self.previous_vertex_ring(self.L[v][0])
+        else:
+            return 0
 
     def corner_vertex(self, v_id):
         """
