@@ -43,9 +43,9 @@ class LacedRing(object):
         self.ring = []
         self.L = {}
         self.R = {}
-        self.O = {}
+        self.O = []
         self.V = []
-        self.C = []
+        self.C = {}
         self.number_triangles = 0
 
     def reorder_vertices(self, ct, edge_ring):
@@ -158,12 +158,54 @@ class LacedRing(object):
             self.V.append(map_ct_lr[pv])
             self.number_triangles += 1
 
+            self.C[map_ct_lr[v]] = c_id 
+            self.C[map_ct_lr[nv]] = c_id + 1
+            self.C[map_ct_lr[pv]] = c_id + 2
+
             c_id += 3
 
         #for c in (8 * self.mr, c_id, 3):
             #v0 = self.V[c]
             #v1 = self.V[c + 1]
             #v2 = self.V[c + 2]
+
+        for c in xrange(len(self.V)):
+            c_id = self.mr * 8 + c
+            cn = c_id + 1
+            cp = c_id + 2
+            v = self.vertex(c_id)
+            vn = self.vertex(cn)
+            vp = self.vertex(cp)
+
+            print v, vn, vp
+
+            cs = set((vn, vp))
+
+            #o = map_ct_lr[ct.get_vertex(ct.get_oposite_corner(map_lr_ct[c]))]
+
+            for t in xrange(self.number_triangles):
+                c0 = self.corner_triangle(t)
+                c1 = self.next_corner(c0)
+                c2 = self.next_corner(c1)
+
+                v0 = self.vertex(c0)
+                v1 = self.vertex(c1)
+                v2 = self.vertex(c2)
+
+                diff = set((v0, v1, v2)) - cs
+
+                if len(diff) == 1:
+                    vo = diff.pop()
+                    if vo == v0:
+                        o = c0
+                    elif vo == v1:
+                        o = c1
+                    else:
+                        o = c2
+                    self.O.append(o)
+                    break
+            
+        print ">>>", len(self.O), len(self.V)
 
     def vertex(self, c_id):
         """
