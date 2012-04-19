@@ -209,7 +209,7 @@ class LacedRing(object):
         """
         Returns a corner related to the given vertex `v_id'.
         """
-        if v >= self.mr:
+        if v_id >= self.mr:
             return self.C[v - self.mr]
         elif self.L[v_id] == self.next_vertex_ring(self.next_vertex_ring(v_id)):
             return 8 * self.next_vertex_ring(v_id) + 1
@@ -306,10 +306,12 @@ class LacedRing(object):
             #colours[self.L[v0]] = 0, 255, 0
             #colours[self.R[v0]] = 0, 0, 255
 
-        render_next = False
+        no_skip = set()
 
         for t in xrange(self.number_triangles):
-            if (not self.is_t2_triangle(t)) or (self.is_t2_triangle(t) and render_next):
+            if self.is_t2_triangle(t) and t not in no_skip:
+                no_skip.add(t + 2)
+            else:
                 c0 = self.corner_triangle(t)
                 c1 = self.next_corner(c0)
                 c2 = self.next_corner(c1)
@@ -325,9 +327,6 @@ class LacedRing(object):
 
                 if self.is_t2_triangle(t):
                     render_next = False
-            else:
-                if self.is_t2_triangle(t):
-                    render_next = True
 
         #lines = []
         ##cv = self.edge_ring.edge_ring[0]
