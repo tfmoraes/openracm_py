@@ -221,7 +221,10 @@ class LacedRing(object):
                 co = self.oposite(o)
 
                 if c != co:
-                    print "Erro", o, co
+                    print "Erro", c, o, co
+                else:
+                    print "Certo", c, o, co
+
 
 
     def vertex(self, c_id):
@@ -251,20 +254,36 @@ class LacedRing(object):
         """
         # TODO: To implement the other cases of oposite operator, when it's not
         # neither single vertex, nor L nor R vertex.
-        v = math.floor(c_id / 8.0)
+        v = int(math.floor(c_id / 8.0))
         if c_id >= 8 * self.mr:
             i = int(c_id - math.floor(c_id / 4.0) - 6 * self.mr)
-            return self.O[i]
+            o = self.O[i]
+
         elif c_id % 8 == 1:
-            return 8*v + 5
+            o = 8*v + 5
         elif c_id % 8 == 5:
-            return 8*v + 1
+            o = 8*v + 1
+
         elif self.L[v][0] == self.L[self.next_vertex_ring(v)][0]:
-            return 8*self.next_vertex_ring(v) + 2
-        elif self.L[self.previous_vertex_ring(self.L[v][0])] == self.next_vertex_ring(v):
-            return self.previous_vertex_ring(self.L[v][0])
+            o = 8*self.next_vertex_ring(v) + 2
+        elif self.L[v][0] == self.L[self.previous_vertex_ring(v)][0]:
+            o = 8*self.previous_vertex_ring(v)
+
+        elif self.L[self.previous_vertex_ring(self.L[v][0])][0] == self.next_vertex_ring(v):
+            o = 8*self.previous_vertex_ring(self.L[v][0])
+        elif self.L[self.L[self.previous_vertex_ring(v)][0]][0] == self.previous_vertex_ring(v):
+            o = 8*self.L[self.previous_vertex_ring(v)][0] + 2
+
         else:
-            return 0
+            o = 0
+
+        #t = self.triangle(o)
+        #if self.is_t2_triangle(t):
+            #v = self.vertex(o)
+            #o = self.corner_vertex(v)
+
+        return o
+
 
     def corner_vertex(self, v_id):
         """
@@ -283,7 +302,7 @@ class LacedRing(object):
         """
         Returns the triangle related to the given corner `c_id'.
         """
-        return math.floor(c_id/4)
+        return int(math.floor(c_id/4))
 
     def corner_triangle(self, t_id):
         """
