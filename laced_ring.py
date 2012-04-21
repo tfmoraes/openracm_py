@@ -218,13 +218,18 @@ class LacedRing(object):
 
             for c in (c0, c1, c2):
                 o = self.oposite(c)
-                co = self.oposite(o)
-
-                if c != co:
-                    print "Erro", c, o, co
+                if o[0] != -1:
+                    co = self.oposite(o[0])
+                    if co[0] == -1:
+                        print "No tratado", c, o
+                    elif c != co[0]:
+                        print "Erro", c, o, co, self.is_t2_triangle(t)
+                    else:
+                        print "Certo", c, o, co
                 else:
-                    print "Certo", c, o, co
+                    print "No tratado", c, o
 
+        print ">>>", self.mr * 8, len(self.O), len(self.V)
 
 
     def vertex(self, c_id):
@@ -257,25 +262,38 @@ class LacedRing(object):
         v = int(math.floor(c_id / 8.0))
         if c_id >= 8 * self.mr:
             i = int(c_id - math.floor(c_id / 4.0) - 6 * self.mr)
-            o = self.O[i]
+            o = self.O[i], 0
 
         elif c_id % 8 == 1:
-            o = 8*v + 5
+            o = 8*v + 5, 1
         elif c_id % 8 == 5:
-            o = 8*v + 1
+            o = 8*v + 1, 2
 
-        elif self.L[v][0] == self.L[self.next_vertex_ring(v)][0]:
-            o = 8*self.next_vertex_ring(v) + 2
-        elif self.L[v][0] == self.L[self.previous_vertex_ring(v)][0]:
-            o = 8*self.previous_vertex_ring(v)
+        elif self.L[v][0] == self.L[self.next_vertex_ring(v)][0] and c_id % 8 == 0:
+            o = 8*self.next_vertex_ring(v) + 2, 3
+        elif self.L[v][0] == self.L[self.previous_vertex_ring(v)][0] and c_id % 8 == 2:
+            o = 8*self.previous_vertex_ring(v), 4
 
-        elif self.L[self.previous_vertex_ring(self.L[v][0])][0] == self.next_vertex_ring(v):
-            o = 8*self.previous_vertex_ring(self.L[v][0])
-        elif self.L[self.L[self.previous_vertex_ring(v)][0]][0] == self.previous_vertex_ring(v):
-            o = 8*self.L[self.previous_vertex_ring(v)][0] + 2
+        elif self.R[v][0] == self.R[self.next_vertex_ring(v)][0] and c_id % 8 == 6:
+            o = 8*self.next_vertex_ring(v) + 4, 7
+        elif self.R[v][0] == self.R[self.previous_vertex_ring(v)][0] and c_id % 8 == 4:
+            o = 8*self.previous_vertex_ring(v) + 6, 8
+
+        elif self.L[self.previous_vertex_ring(self.L[v][0])][0] == self.next_vertex_ring(v) and c_id % 8 == 0:
+            o = 8*self.previous_vertex_ring(self.L[v][0]), 5
+        elif self.L[self.previous_vertex_ring(self.L[v][0])][0] == self.previous_vertex_ring(v) and c_id % 8 == 2:
+            o = 8*self.L[v][0] + 2, 6
+
+        elif self.R[self.next_vertex_ring(self.R[v][0])][0] == self.previous_vertex_ring(v) and c_id % 8 == 4:
+            o = 8*self.next_vertex_ring(self.R[v][0]) + 4, 9
+        elif self.R[self.previous_vertex_ring(self.R[v][0])][0] == self.next_vertex_ring(v) and c_id % 8 == 6:
+            o = 8*self.previous_vertex_ring(self.R[v][0]) + 6, 10
+
+        #elif self.L[self.previous_vertex_ring(v)][0] == self.next_vertex_ring(v):
+            #o = 8*self.previous_vertex_ring(v) + 5
 
         else:
-            o = 0
+            o = -1, -1
 
         #t = self.triangle(o)
         #if self.is_t2_triangle(t):
