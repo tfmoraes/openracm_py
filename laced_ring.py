@@ -324,6 +324,8 @@ class LacedRing(object):
 
         ################################################
 
+        # the triangle t related to the given corner is a expensive triangle,
+        # so it's necessary to lookup VOs structure to find c.o.
         if self.is_expensive_triangle(t):
             print 'expensive', self.L[v], self.R[v], c_id, v
             if c_id % 8 == 0:
@@ -335,17 +337,87 @@ class LacedRing(object):
             elif c_id % 8 == 6:           
                 o = self.VOs[self.R[v][0]][1]
 
+        # This corner if related to a T0 triangle, so its oposity is in O
+        # array.
         if c_id >= 8 * self.mr:
             i = int(c_id - math.floor(c_id / 4.0) - 6 * self.mr)
             o = self.O[i], 0
 
+        #                  * v.1
+        #                 - -   	     
+        #                -   -  	     
+        #               -     - 	     
+        #              -	   -	     
+        #             -	        -     
+        #          v -  	     - v.n
+        #   ========o=============o=================>
+        #            -	       	 - 
+        #             -	        -  
+        #              -	   -	  
+        #               -     - 	  
+        #                -   -  	  
+        #                 - -   	  				
+        #                  o v.5
+        #
         elif c_id % 8 == 1:
             o = 8*v + 5, 1
+
+        #                  o v.1
+        #                 - -   	     
+        #                -   -  	     
+        #               -     - 	     
+        #              -	   -	     
+        #             -	        -     
+        #          v -  	     - v.n
+        #   ========o=============o=================>
+        #            -	       	 - 
+        #             -	        -  
+        #              -	   -	  
+        #               -     - 	  
+        #                -   -  	  
+        #                 - -   	  				
+        #                  * v.5
+        #
         elif c_id % 8 == 5:
             o = 8*v + 1, 2
 
+        #                         v.l                          ^
+        #                         o---------------------------o
+        #                        - -			       v.n.2 =
+        #                       -   -		                =
+        #                      -     - 	                   =
+        #                     -       - 		          =
+        #                    -         - 		         = 
+        #                   -           - 		        =
+        #                  -		     -		       =
+        #                 - 		      -	          =
+        #                -		           -	     =
+        #               -		            -       =
+        #              -		             -     =
+        #             -		                  -   =
+        #            - v.0	                   - =
+        #    =======*===========================o v.n
         elif self.L[v][0] == self.L[self.next_vertex_ring(v)][0] and c_id % 8 == 0:
             o = 8*self.next_vertex_ring(v) + 2, 3
+
+        #                         v.l                          ^
+        #                         o---------------------------* v.n
+        #                        - -			         v.2 =
+        #                       -   -		                =
+        #                      -     - 	                   =
+        #                     -       - 		          =
+        #                    -         - 		         = 
+        #                   -           - 		        =
+        #                  -		     -		       =
+        #                 - 		      -	          =
+        #                -		           -	     =
+        #               -		            -       =
+        #              -		             -     =
+        #             -		                  -   =
+        #            - v.p.0                   - =
+        #    =======o===========================o 
+        #          v.p                          v
+        #
         elif self.L[v][0] == self.L[self.previous_vertex_ring(v)][0] and c_id % 8 == 2:
             o = 8*self.previous_vertex_ring(v), 4
 
