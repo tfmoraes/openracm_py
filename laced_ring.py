@@ -46,6 +46,7 @@ class LacedRing(object):
         self.O = {}
         self.V = []
         self.C = {}
+        self.VOs = {}
         self.number_triangles = 0
 
     def reorder_vertices(self, ct, edge_ring):
@@ -169,6 +170,7 @@ class LacedRing(object):
             #v1 = self.V[c + 1]
             #v2 = self.V[c + 2]
 
+        ti = set()
         for c_id in xrange(8*self.mr, t_c_id, 4):
             cn = c_id + 1
             cp = c_id + 2
@@ -177,7 +179,7 @@ class LacedRing(object):
             vp = self.vertex(cp)
 
             s = set((v, vn, vp))
-            for vi in (v, vn, vp):
+            for cw, vi in ((c_id, v), (cn, vn), (cp, vp)):
                 cs = s - set((vi,))
                 for t in xrange(self.number_triangles):
                     c0 = self.corner_triangle(t)
@@ -206,8 +208,38 @@ class LacedRing(object):
                         elif vi == vp:
                             self.O[cp] = o
                         break
+
+
+                t = self.triangle(o)
+                v = int(math.floor(o / 8.0))
+                if t % 2:
+                    self.R[v][2] = 1
+                    if o % 8 == 4:
+                        try:
+                            self.VOs[self.R[v][0]][0] = cw
+                        except KeyError:
+                            self.VOs[self.R[v][0]] = [cw, -1]
+                    else:
+                        try:
+                            self.VOs[self.R[v][0]][1] = cw
+                        except KeyError:
+                            self.VOs[self.R[v][0]] = [-1, cw]
+                else:
+                    self.L[v][2] = 1
+                    if o % 8 == 0:
+                        try:
+                            self.VOs[self.L[v][0]][0] = cw
+                        except KeyError:
+                            self.VOs[self.L[v][0]] = [cw, -1]
+                    else:
+                        try:
+                            self.VOs[self.R[v][0]][1] = cw
+                        except KeyError:
+                            self.VOs[self.R[v][0]] = [-1, cw]
+                
             
-        print ">>>", self.mr * 8, len(self.O), len(self.V), self.O, self.V
+        print "\n\nVOs", len(self.VOs) , self.VOs
+        print "\n\n>>>", self.mr * 8, len(self.O), len(self.V), self.O, self.V
 
         print "Testing oposite"
 
@@ -288,8 +320,20 @@ class LacedRing(object):
 
                 c_id = 8*self.next_vertex_ring(v) + r
                 v = int(math.floor(c_id / 8.0))
+            t = self.triangle(c_id)
 
         ################################################
+
+        if self.is_expensive_triangle(t):
+            print 'expensive', self.L[v], self.R[v], c_id, v
+            if c_id % 8 == 0:
+                o = self.VOs[self.L[v][0]][0]
+            elif c_id % 8 == 2:           
+                o = self.VOs[self.L[v][0]][1]
+            elif c_id % 8 == 4:           
+                o = self.VOs[self.R[v][0]][0]
+            elif c_id % 8 == 6:           
+                o = self.VOs[self.R[v][0]][1]
 
         if c_id >= 8 * self.mr:
             i = int(c_id - math.floor(c_id / 4.0) - 6 * self.mr)
@@ -440,6 +484,17 @@ class LacedRing(object):
             return self.R[t_id/2][1] == 2
         else:
             return self.L[t_id/2][1] == 2
+
+    def is_expensive_triangle(self, t_id):
+        if t_id >= 2*self.mr:
+            return False
+        c = self.corner_triangle(t_id)
+        v = int(math.floor(c / 8.0))
+
+        if t_id % 2:
+            return self.R[v][2]
+        else:
+            return self.L[v][2]
 
     def to_vertices_faces(self):
         faces = []
