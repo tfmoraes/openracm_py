@@ -326,16 +326,16 @@ class LacedRing(object):
 
         # the triangle t related to the given corner is a expensive triangle,
         # so it's necessary to lookup VOs structure to find c.o.
-        if self.is_expensive_triangle(t):
-            print 'expensive', self.L[v], self.R[v], c_id, v
-            if c_id % 8 == 0:
-                o = self.VOs[self.L[v][0]][0]
-            elif c_id % 8 == 2:           
-                o = self.VOs[self.L[v][0]][1]
-            elif c_id % 8 == 4:           
-                o = self.VOs[self.R[v][0]][0]
-            elif c_id % 8 == 6:           
-                o = self.VOs[self.R[v][0]][1]
+        #if self.is_expensive_triangle(t):
+            #print 'expensive', self.L[v], self.R[v], c_id, v
+            #if c_id % 8 == 0:
+                #o = self.VOs[self.L[v][0]][0]
+            #elif c_id % 8 == 2:           
+                #o = self.VOs[self.L[v][0]][1]
+            #elif c_id % 8 == 4:           
+                #o = self.VOs[self.R[v][0]][0]
+            #elif c_id % 8 == 6:           
+                #o = self.VOs[self.R[v][0]][1]
 
         # This corner if related to a T0 triangle, so its oposity is in O
         # array.
@@ -463,13 +463,89 @@ class LacedRing(object):
         elif self.R[v][0] == self.R[self.previous_vertex_ring(v)][0] and c_id % 8 == 4:
             o = 8*self.previous_vertex_ring(v) + 6, 8
 
+        #
+        #                 v.l                      v.l.p
+        #     <============o=========================o======
+        #                 - -                v.l.p.0-
+        #                -   -                     -
+        #               -     -                   -
+        #              -       -                 -
+        #             -         -               -
+        #            -           -             -
+        #           -             -           -
+        #          -               -         -
+        #         -                 -       -
+        #        -                   -     -
+        #       -                     -   -
+        #      - v.0                   - -
+        #   ==*=========================o=================>
+        #     v                        v.n
+        #
         elif self.L[self.previous_vertex_ring(self.L[v][0])][0] == self.next_vertex_ring(v) and c_id % 8 == 0:
             o = 8*self.previous_vertex_ring(self.L[v][0]), 5
-        elif self.L[self.previous_vertex_ring(self.L[v][0])][0] == self.previous_vertex_ring(v) and c_id % 8 == 2:
+
+        #
+        #                v.l.n                       v.l
+        # <===============o===========================o=====================
+        #                - - v.l.2                   - -
+        #               -   -                       -   -
+        #              -     -                     -     -
+        #             -       -                   -       -
+        #            -         -                 -         -
+        #           -           -               -           -
+        #          -             -             -             -
+        #         -               -           -               -
+        #        -                 -         -                 -
+        #       -                   -       -                   -
+        #      -                     -     -                     -
+        #     -                       -   -                       -
+        #    -                         - -                     v.2 -
+        #  =o===========================o===========================*===>
+        #  v.p                          v                           
+        #
+        elif self.L[self.next_vertex_ring(self.L[v][0])][0] == self.previous_vertex_ring(v) and c_id % 8 == 2:
             o = 8*self.L[v][0] + 2, 6
 
+        #
+        #                 v.r                      v.r.n
+        #     =============o=========================o======>
+        #                 - -                v.r.n.4-
+        #                -   -                     -
+        #               -     -                   -
+        #              -       -                 -
+        #             -         -               -
+        #            -           -             -
+        #           -             -           -
+        #          -               -         -
+        #         -                 -       -
+        #        -                   -     -
+        #       -                     -   -
+        #      - v.4                   - -
+        #  <==*=========================o==================
+        #     v                        v.p
+        #
         elif self.R[self.next_vertex_ring(self.R[v][0])][0] == self.previous_vertex_ring(v) and c_id % 8 == 4:
             o = 8*self.next_vertex_ring(self.R[v][0]) + 4, 9
+
+        #
+        #                v.r.p                       v.r
+        # ================o===========================o=====================>
+        #                - - v.r.6                   - -
+        #               -   -                       -   -
+        #              -     -                     -     -
+        #             -       -                   -       -
+        #            -         -                 -         -
+        #           -           -               -           -
+        #          -             -             -             -
+        #         -               -           -               -
+        #        -                 -         -                 -
+        #       -                   -       -                   -
+        #      -                     -     -                     -
+        #     -                       -   -                       -
+        #    -                         - -                     v.6 -
+        # <=o===========================o===========================o===
+        #                              v.n                           v
+        #
         elif self.R[self.previous_vertex_ring(self.R[v][0])][0] == self.next_vertex_ring(v) and c_id % 8 == 6:
             o = 8*self.previous_vertex_ring(self.R[v][0]) + 6, 10
 
