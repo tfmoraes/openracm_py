@@ -294,33 +294,33 @@ class LacedRing(object):
         v = int(math.floor(c_id / 8.0))
         
         ########### Mapping redundant triangle to canonical one ###############
-        t = self.triangle(c_id)
-        if self.is_t2_triangle(t):
-            print "T2"
-            if self.L[v] == self.next_vertex_ring(self.next_vertex_ring(v)):
-                print "Aqui L"
-                if c_id % 8 == 0:
-                    r = 1
-                elif c_id % 8 == 1:
-                    r = 2
-                elif c_id % 8 == 2:
-                    r = 0
+        #t = self.triangle(c_id)
+        #if self.is_t2_triangle(t):
+            #print "T2"
+            #if self.L[v] == self.next_vertex_ring(self.next_vertex_ring(v)):
+                #print "Aqui L"
+                #if c_id % 8 == 0:
+                    #r = 1
+                #elif c_id % 8 == 1:
+                    #r = 2
+                #elif c_id % 8 == 2:
+                    #r = 0
 
-                c_id = 8*self.next_vertex_ring(v) + r
-                v = int(math.floor(c_id / 8.0))
+                #c_id = 8*self.next_vertex_ring(v) + r
+                #v = int(math.floor(c_id / 8.0))
             
-            elif self.R[v] == self.next_vertex_ring(self.next_vertex_ring(v)):
-                print "Aqui R"
-                if c_id % 8 == 4:
-                    r = 6
-                elif c_id % 8 == 5:
-                    r = 4
-                elif c_id % 8 == 6:
-                    r = 5
+            #elif self.R[v] == self.next_vertex_ring(self.next_vertex_ring(v)):
+                #print "Aqui R"
+                #if c_id % 8 == 4:
+                    #r = 6
+                #elif c_id % 8 == 5:
+                    #r = 4
+                #elif c_id % 8 == 6:
+                    #r = 5
 
-                c_id = 8*self.next_vertex_ring(v) + r
-                v = int(math.floor(c_id / 8.0))
-            t = self.triangle(c_id)
+                #c_id = 8*self.next_vertex_ring(v) + r
+                #v = int(math.floor(c_id / 8.0))
+            #t = self.triangle(c_id)
 
         ################################################
 
@@ -443,7 +443,7 @@ class LacedRing(object):
             o = 8*self.next_vertex_ring(v) + 4, 7
 
         #
-        #              v.n                        
+        #              v                        
         #               o=========================o====>
         #              = -                    v.4-
         #             =   -                     -
@@ -530,7 +530,7 @@ class LacedRing(object):
         #
         #                v.r.p                       v.r
         # ================o===========================o=====================>
-        #                - - v.r.6                   - -
+        #                - - v.r.p.6                 - -
         #               -   -                       -   -
         #              -     -                     -     -
         #             -       -                   -       -
