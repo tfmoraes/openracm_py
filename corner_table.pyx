@@ -4,6 +4,7 @@
 
 import itertools
 import sys
+import numpy
 
 cdef class CornerTable:
     def __init__(self):
@@ -17,12 +18,30 @@ cdef class CornerTable:
         self._compute_V(faces)
         self._compute_O(vertices, faces, vertices_faces)
 
+    cdef int is_clockwise(self, v0, v1, v2):
+        u = v1[0] - v0[0], v1[1] - v0[1], v1[2] - v0[2]
+        v = v2[0] - v0[0], v2[1] - v0[1], v2[2] - v0[2]
+        n = numpy.cross(u, v)
+
+        d = numpy.array([[1, v0[0], v0[1], v0[2]],
+                         [1, v1[0], v1[1], v1[2]],
+                         [1, v2[0], v2[1], v2[2]],
+                         [1, n[0], n[1], n[2]]])
+
+        return numpy.linalg.det(d) >= 0
+
     cdef void _compute_V(self, list faces):
         cdef list face
         cdef int i=0
         cdef nface=0
         for face in faces:
-            for vertex in face:
+            if self.is_clockwise(self.vertices[face[0]],
+                                 self.vertices[face[1]],
+                                 self.vertices[face[2]]):
+                vertices = face[0], face[1], face[2]
+            else:
+                vertices = face[2], face[1], face[0]
+            for vertex in vertices:
                 self.V.append(vertex)
                 self.C[vertex] = i
                 i += 1
