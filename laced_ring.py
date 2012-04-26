@@ -199,12 +199,7 @@ class LacedRing(object):
                         elif vo == v2 and vo != vi:
                             o = c2
 
-                        if vi == v:
-                            self.O[c_id] = o
-                        elif vi == vn:
-                            self.O[cn] = o
-                        elif vi == vp:
-                            self.O[cp] = o
+                        self.O[cw] = o
                         break
 
 
@@ -300,277 +295,270 @@ class LacedRing(object):
         
         ########### Mapping redundant triangle to canonical one ###############
         t = self.triangle(c_id)
-        if self.is_t2_triangle(t):
-            if self.L[v][0] == self.next_vertex_ring(self.next_vertex_ring(v)) and c_id % 8 in (0, 1, 2):
-                if c_id % 8 == 0:
-                    r = 1
-                elif c_id % 8 == 1:
-                    r = 2
-                elif c_id % 8 == 2:
-                    r = 0
+        #if self.is_t2_triangle(t):
+            #if self.L[v][0] == self.next_vertex_ring(self.next_vertex_ring(v)) and c_id % 8 in (0, 1, 2):
+                #if c_id % 8 == 0:
+                    #r = 1
+                #elif c_id % 8 == 1:
+                    #r = 2
+                #elif c_id % 8 == 2:
+                    #r = 0
 
-                c_id = 8*self.next_vertex_ring(v) + r
-                v = int(math.floor(c_id / 8.0))
+                #c_id = 8*self.next_vertex_ring(v) + r
+                #v = int(math.floor(c_id / 8.0))
             
-            elif self.R[v][0] == self.next_vertex_ring(self.next_vertex_ring(v)) and c_id % 8 in (4, 5, 6):
-                if c_id % 8 == 4:
-                    r = 6
-                elif c_id % 8 == 5:
-                    r = 4
-                elif c_id % 8 == 6:
-                    r = 5
+            #elif self.R[v][0] == self.next_vertex_ring(self.next_vertex_ring(v)) and c_id % 8 in (4, 5, 6):
+                #if c_id % 8 == 4:
+                    #r = 6
+                #elif c_id % 8 == 5:
+                    #r = 4
+                #elif c_id % 8 == 6:
+                    #r = 5
 
-                c_id = 8*self.next_vertex_ring(v) + r
-                v = int(math.floor(c_id / 8.0))
-            t = self.triangle(c_id)
+                #c_id = 8*self.next_vertex_ring(v) + r
+                #v = int(math.floor(c_id / 8.0))
+            #t = self.triangle(c_id)
 
-        ################################################
+        #################################################
 
 
-        # This corner if related to a T0 triangle, so its oposity is in O
-        # array.
+        ## This corner if related to a T0 triangle, so its oposity is in O
+        ## array.
         if c_id >= 8 * self.mr:
             #i = int(c_id - math.floor(c_id / 4.0) - 6 * self.mr)
-            #o = self.O[c_id], 0
-            return -1, -1
+            o = self.O[c_id], 0
+            #return -1, -1
 
-        # the triangle t related to the given corner is a expensive triangle,
-        # so it's necessary to lookup VOs structure to find c.o.
-        elif self.is_expensive_triangle(t):
-            print 'expensive', self.L[v], self.R[v], c_id, v
-            if c_id % 8 == 0:
-                o = self.VOs[self.L[v][0]][0]
-            elif c_id % 8 == 2:           
-                o = self.VOs[self.L[v][0]][1]
-            elif c_id % 8 == 4:           
-                o = self.VOs[self.R[v][0]][0]
-            elif c_id % 8 == 6:           
-                o = self.VOs[self.R[v][0]][1]
+        ## the triangle t related to the given corner is a expensive triangle,
+        ## so it's necessary to lookup VOs structure to find c.o.
+        #elif self.is_expensive_triangle(t):
+            #print 'expensive', self.L[v], self.R[v], c_id, v
+            #if c_id % 8 == 0:
+                #o = self.VOs[self.L[v][0]][0]
+            #elif c_id % 8 == 2:           
+                #o = self.VOs[self.L[v][0]][1]
+            #elif c_id % 8 == 4:           
+                #o = self.VOs[self.R[v][0]][0]
+            #elif c_id % 8 == 6:           
+                #o = self.VOs[self.R[v][0]][1]
 
-        if not self.is_t2_triangle(t):
-            #                  * v.1
-            #                 - -            
-            #                -   -           
-            #               -     -          
-            #              -       -         
-            #             -         -     
-            #          v -           - v.n
-            #   ========o=============o=================>
-            #            -           - 
-            #             -         -  
-            #              -       -      
-            #               -     -       
-            #                -   -        
-            #                 - -                       
-            #                  o v.5
-            #
-            if c_id % 8 == 1:
-                o = 8*v + 5, 1
+        #                  * v.1
+        #                 - -            
+        #                -   -           
+        #               -     -          
+        #              -       -         
+        #             -         -     
+        #          v -           - v.n
+        #   ========o=============o=================>
+        #            -           - 
+        #             -         -  
+        #              -       -      
+        #               -     -       
+        #                -   -        
+        #                 - -                       
+        #                  o v.5
+        #
+        elif c_id % 8 == 1:
+            o = 8*v + 5, 1
 
-            #                  o v.1
-            #                 - -            
-            #                -   -           
-            #               -     -          
-            #              -       -         
-            #             -         -     
-            #          v -           - v.n
-            #   ========o=============o=================>
-            #            -           - 
-            #             -         -  
-            #              -       -      
-            #               -     -       
-            #                -   -        
-            #                 - -                       
-            #                  * v.5
-            #
-            elif c_id % 8 == 5:
-                o = 8*v + 1, 2
+        #                  o v.1
+        #                 - -            
+        #                -   -           
+        #               -     -          
+        #              -       -         
+        #             -         -     
+        #          v -           - v.n
+        #   ========o=============o=================>
+        #            -           - 
+        #             -         -  
+        #              -       -      
+        #               -     -       
+        #                -   -        
+        #                 - -                       
+        #                  * v.5
+        #
+        elif c_id % 8 == 5:
+            o = 8*v + 1, 2
 
-            #                         v.l                          ^
-            #                         o---------------------------o
-            #                        - -                   v.n.2 =
-            #                       -   -                       =
-            #                      -     -                     =
-            #                     -       -                   =
-            #                    -         -                 = 
-            #                   -           -               =
-            #                  -             -             =
-            #                 -               -           =
-            #                -                 -         =
-            #               -                   -       =
-            #              -                     -     =
-            #             -                       -   =
-            #            - v.0                     - =
-            #    =======*===========================o v.n
-            elif self.L[v][0] == self.L[self.next_vertex_ring(v)][0] and c_id % 8 == 0:
-                o = 8*self.next_vertex_ring(v) + 2, 3
+        #                         v.l                          ^
+        #                         o---------------------------o
+        #                        - -                   v.n.2 =
+        #                       -   -                       =
+        #                      -     -                     =
+        #                     -       -                   =
+        #                    -         -                 = 
+        #                   -           -               =
+        #                  -             -             =
+        #                 -               -           =
+        #                -                 -         =
+        #               -                   -       =
+        #              -                     -     =
+        #             -                       -   =
+        #            - v.0                     - =
+        #    =======*===========================o v.n
+        elif self.L[v][0] == self.L[self.next_vertex_ring(v)][0] and c_id % 8 == 0:
+            o = 8*self.next_vertex_ring(v) + 2, 3
 
-            #                         v.l                          ^
-            #                         o---------------------------* v.n
-            #                        - -                     v.2 =
-            #                       -   -                       =
-            #                      -     -                     =
-            #                     -       -                   =
-            #                    -         -                 = 
-            #                   -           -               =
-            #                  -             -             =
-            #                 -               -           =
-            #                -                 -         =
-            #               -                   -       =
-            #              -                     -     =
-            #             -                       -   =
-            #            - v.p.0                   - =
-            #    =======o===========================o 
-            #          v.p                          v
-            #
-            elif self.L[v][0] == self.L[self.previous_vertex_ring(v)][0] and c_id % 8 == 2:
-                o = 8*self.previous_vertex_ring(v), 4
+        #                         v.l                          ^
+        #                         o---------------------------* v.n
+        #                        - -                     v.2 =
+        #                       -   -                       =
+        #                      -     -                     =
+        #                     -       -                   =
+        #                    -         -                 = 
+        #                   -           -               =
+        #                  -             -             =
+        #                 -               -           =
+        #                -                 -         =
+        #               -                   -       =
+        #              -                     -     =
+        #             -                       -   =
+        #            - v.p.0                   - =
+        #    =======o===========================o 
+        #          v.p                          v
+        #
+        elif self.L[v][0] == self.L[self.previous_vertex_ring(v)][0] and c_id % 8 == 2:
+            o = 8*self.previous_vertex_ring(v), 4
 
-            #
-            #              v.n                        
-            #               o=========================o====>
-            #              = -                  v.n.4-
-            #             =   -                     -
-            #            =     -                   -
-            #           =       -                 -
-            #          =         -               -
-            #         =           -             -
-            #        =             -           -
-            #       =               -         -
-            #      =                 -       -
-            #     =                   -     -
-            #    =                     -   -
-            #   = v.6                   - -
-            #  *-------------------------o
-            #  v                         v.r
-            #
-            elif self.R[v][0] == self.R[self.next_vertex_ring(v)][0] and c_id % 8 == 6:
-                o = 8*self.next_vertex_ring(v) + 4, 7
+        #
+        #              v.n                        
+        #               o=========================o====>
+        #              = -                  v.n.4-
+        #             =   -                     -
+        #            =     -                   -
+        #           =       -                 -
+        #          =         -               -
+        #         =           -             -
+        #        =             -           -
+        #       =               -         -
+        #      =                 -       -
+        #     =                   -     -
+        #    =                     -   -
+        #   = v.6                   - -
+        #  *-------------------------o
+        #  v                         v.r
+        #
+        elif self.R[v][0] == self.R[self.next_vertex_ring(v)][0] and c_id % 8 == 6:
+            o = 8*self.next_vertex_ring(v) + 4, 7
 
-            #
-            #              v                        
-            #               o=========================o====>
-            #              = -                    v.4-
-            #             =   -                     -
-            #            =     -                   -
-            #           =       -                 -
-            #          =         -               -
-            #         =           -             -
-            #        =             -           -
-            #       =               -         -
-            #      =                 -       -
-            #     =                   -     -
-            #    =                     -   -
-            #   = v.p.6                 - -
-            #  *-------------------------o
-            # v.p                       v.r
-            #
-            elif self.R[v][0] == self.R[self.previous_vertex_ring(v)][0] and c_id % 8 == 4:
-                o = 8*self.previous_vertex_ring(v) + 6, 8
+        #
+        #              v                        
+        #               o=========================o====>
+        #              = -                    v.4-
+        #             =   -                     -
+        #            =     -                   -
+        #           =       -                 -
+        #          =         -               -
+        #         =           -             -
+        #        =             -           -
+        #       =               -         -
+        #      =                 -       -
+        #     =                   -     -
+        #    =                     -   -
+        #   = v.p.6                 - -
+        #  *-------------------------o
+        # v.p                       v.r
+        #
+        elif self.R[v][0] == self.R[self.previous_vertex_ring(v)][0] and c_id % 8 == 4:
+            o = 8*self.previous_vertex_ring(v) + 6, 8
 
-            #
-            #                 v.l                      v.l.p
-            #     <============o=========================o======
-            #                 - -                v.l.p.0-
-            #                -   -                     -
-            #               -     -                   -
-            #              -       -                 -
-            #             -         -               -
-            #            -           -             -
-            #           -             -           -
-            #          -               -         -
-            #         -                 -       -
-            #        -                   -     -
-            #       -                     -   -
-            #      - v.0                   - -
-            #   ==*=========================o=================>
-            #     v                        v.n
-            #
-            elif self.L[self.previous_vertex_ring(self.L[v][0])][0] == self.next_vertex_ring(v) and c_id % 8 == 0:
-                o = 8*self.previous_vertex_ring(self.L[v][0]), 5
+        #
+        #                 v.l                      v.l.p
+        #     <============o=========================o======
+        #                 - -                v.l.p.0-
+        #                -   -                     -
+        #               -     -                   -
+        #              -       -                 -
+        #             -         -               -
+        #            -           -             -
+        #           -             -           -
+        #          -               -         -
+        #         -                 -       -
+        #        -                   -     -
+        #       -                     -   -
+        #      - v.0                   - -
+        #   ==*=========================o=================>
+        #     v                        v.n
+        #
+        elif self.L[self.previous_vertex_ring(self.L[v][0])][0] == self.next_vertex_ring(v) and c_id % 8 == 0:
+            o = 8*self.previous_vertex_ring(self.L[v][0]), 5
 
-            #
-            #                v.l.n                       v.l
-            # <===============o===========================o=====================
-            #                - - v.l.2                   - -
-            #               -   -                       -   -
-            #              -     -                     -     -
-            #             -       -                   -       -
-            #            -         -                 -         -
-            #           -           -               -           -
-            #          -             -             -             -
-            #         -               -           -               -
-            #        -                 -         -                 -
-            #       -                   -       -                   -
-            #      -                     -     -                     -
-            #     -                       -   -                       -
-            #    -                         - -                     v.2 -
-            #  =o===========================o===========================*===>
-            #  v.p                          v                           
-            #
-            elif self.L[self.next_vertex_ring(self.L[v][0])][0] == self.previous_vertex_ring(v) and c_id % 8 == 2:
-                o = 8*self.L[v][0] + 2, 6
+        #
+        #                v.l.n                       v.l
+        # <===============o===========================o=====================
+        #                - - v.l.2                   - -
+        #               -   -                       -   -
+        #              -     -                     -     -
+        #             -       -                   -       -
+        #            -         -                 -         -
+        #           -           -               -           -
+        #          -             -             -             -
+        #         -               -           -               -
+        #        -                 -         -                 -
+        #       -                   -       -                   -
+        #      -                     -     -                     -
+        #     -                       -   -                       -
+        #    -                         - -                     v.2 -
+        #  =o===========================o===========================*===>
+        #  v.p                          v                           
+        #
+        elif self.L[self.next_vertex_ring(self.L[v][0])][0] == self.previous_vertex_ring(v) and c_id % 8 == 2:
+            o = 8*self.L[v][0] + 2, 6
 
-            #
-            #                 v.r                      v.r.n
-            #     =============o=========================o======>
-            #                 - -                v.r.n.4-
-            #                -   -                     -
-            #               -     -                   -
-            #              -       -                 -
-            #             -         -               -
-            #            -           -             -
-            #           -             -           -
-            #          -               -         -
-            #         -                 -       -
-            #        -                   -     -
-            #       -                     -   -
-            #      - v.4                   - -
-            #  <==*=========================o==================
-            #     v                        v.p
-            #
-            elif self.R[self.next_vertex_ring(self.R[v][0])][0] == self.previous_vertex_ring(v) and c_id % 8 == 4:
-                o = 8*self.next_vertex_ring(self.R[v][0]) + 4, 9
+        #
+        #                 v.r                      v.r.n
+        #     =============o=========================o======>
+        #                 - -                v.r.n.4-
+        #                -   -                     -
+        #               -     -                   -
+        #              -       -                 -
+        #             -         -               -
+        #            -           -             -
+        #           -             -           -
+        #          -               -         -
+        #         -                 -       -
+        #        -                   -     -
+        #       -                     -   -
+        #      - v.4                   - -
+        #  <==*=========================o==================
+        #     v                        v.p
+        #
+        elif self.R[self.next_vertex_ring(self.R[v][0])][0] == self.previous_vertex_ring(v) and c_id % 8 == 4:
+            o = 8*self.next_vertex_ring(self.R[v][0]) + 4, 9
 
-            #
-            #                v.r.p                       v.r
-            # ================o===========================o=====================>
-            #                - - v.r.p.6                 - -
-            #               -   -                       -   -
-            #              -     -                     -     -
-            #             -       -                   -       -
-            #            -         -                 -         -
-            #           -           -               -           -
-            #          -             -             -             -
-            #         -               -           -               -
-            #        -                 -         -                 -
-            #       -                   -       -                   -
-            #      -                     -     -                     -
-            #     -                       -   -                       -
-            #    -                         - -                     v.6 -
-            # <=o===========================o===========================o===
-            #                              v.n                           v
-            #
-            elif self.R[self.previous_vertex_ring(self.R[v][0])][0] == self.next_vertex_ring(v) and c_id % 8 == 6:
-                o = 8*self.previous_vertex_ring(self.R[v][0]) + 6, 10
+        #
+        #                v.r.p                       v.r
+        # ================o===========================o=====================>
+        #                - - v.r.p.6                 - -
+        #               -   -                       -   -
+        #              -     -                     -     -
+        #             -       -                   -       -
+        #            -         -                 -         -
+        #           -           -               -           -
+        #          -             -             -             -
+        #         -               -           -               -
+        #        -                 -         -                 -
+        #       -                   -       -                   -
+        #      -                     -     -                     -
+        #     -                       -   -                       -
+        #    -                         - -                     v.6 -
+        # <=o===========================o===========================o===
+        #                              v.n                           v
+        #
+        elif self.R[self.previous_vertex_ring(self.R[v][0])][0] == self.next_vertex_ring(v) and c_id % 8 == 6:
+            o = 8*self.previous_vertex_ring(self.R[v][0]) + 6, 10
 
-            else:
-                o = -1, -1
 
-        elif self.is_t2_triangle(t):
 
-            if self.L[self.previous_vertex_ring(v)][0] == self.next_vertex_ring(v) and c_id % 8 ==2:
-                o = 8*self.previous_vertex_ring(v) + 5, 11
-            elif self.L[self.previous_vertex_ring(v)][0] == self.next_vertex_ring(v) and c_id % 8 ==1:
-                o = 8*v + 5, 12
+        elif self.L[self.previous_vertex_ring(v)][0] == self.next_vertex_ring(v) and c_id % 8 ==2:
+            o = 8*self.previous_vertex_ring(v) + 5, 11
+        elif self.L[self.previous_vertex_ring(v)][0] == self.next_vertex_ring(v) and c_id % 8 ==1:
+            o = 8*v + 5, 12
 
-            elif self.R[self.previous_vertex_ring(v)][0] == self.next_vertex_ring(v) and c_id % 8 == 4:
-                o = 8*self.previous_vertex_ring(v) + 1, 13
-            elif self.R[self.previous_vertex_ring(v)][0] == self.next_vertex_ring(v) and c_id % 8 == 5:
-                o = 8*v+ 1, 14
-
-            else:
-                o = -1, -1
+        elif self.R[self.previous_vertex_ring(v)][0] == self.next_vertex_ring(v) and c_id % 8 == 4:
+            o = 8*self.previous_vertex_ring(v) + 1, 13
+        elif self.R[self.previous_vertex_ring(v)][0] == self.next_vertex_ring(v) and c_id % 8 == 5:
+            o = 8*v+ 1, 14
 
         else:
             if self.L[self.previous_vertex_ring(v)][0] == self.next_vertex_ring(v):
