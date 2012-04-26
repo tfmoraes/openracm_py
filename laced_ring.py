@@ -203,32 +203,22 @@ class LacedRing(object):
                         break
 
 
-                t = self.triangle(o)
-                v = int(math.floor(o / 8.0))
-                if t % 2:
-                    self.R[v][2] = 1
-                    if o % 8 == 4:
-                        try:
-                            self.VOs[self.R[v][0]][0] = cw
-                        except KeyError:
-                            self.VOs[self.R[v][0]] = [cw, -1]
-                    else:
-                        try:
-                            self.VOs[self.R[v][0]][1] = cw
-                        except KeyError:
-                            self.VOs[self.R[v][0]] = [-1, cw]
+        for c_id in self.O:
+            o = self.O[c_id]
+            t = self.triangle(o)
+            v = int(math.floor(o / 8.0))
+            if t % 2:
+                self.R[v][2] = 1
+                if o % 8 == 4:
+                    self.VOs[self.R[v][0]] = [c_id, self.oposite(o + 2)[0]]
                 else:
-                    self.L[v][2] = 1
-                    if o % 8 == 0:
-                        try:
-                            self.VOs[self.L[v][0]][0] = cw
-                        except KeyError:
-                            self.VOs[self.L[v][0]] = [cw, -1]
-                    else:
-                        try:
-                            self.VOs[self.R[v][0]][1] = cw
-                        except KeyError:
-                            self.VOs[self.R[v][0]] = [-1, cw]
+                    self.VOs[self.R[v][0]] = [self.oposite(o - 2)[0], c_id]
+            else:
+                self.L[v][2] = 1
+                if o % 8 == 0:
+                    self.VOs[self.L[v][0]] = [c_id, self.oposite(o + 2)[0]]
+                else:
+                    self.VOs[self.R[v][0]] = [self.oposite(o - 2)[0], c_id]
                 
             
         print "\n\nVOs", len(self.VOs) , self.VOs
