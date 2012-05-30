@@ -7,6 +7,6 @@ do
 	do 
 		echo $i
 		echo "RSS: `ps -p $my_pid -o rss=`"  >> outofcore/mem_${filename%.*}.out
-		sleep 1
+		sleep $2
 	done
 done

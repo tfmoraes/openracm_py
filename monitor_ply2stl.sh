@@ -7,6 +7,6 @@ do
 	do 
 		echo $i
 		echo "rss: `ps -p $my_pid -o rss=`" >> incore/mem_stl2ply_${filename%.*}.out
-		sleep 1
+		sleep $2
 	done
 done
