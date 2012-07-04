@@ -9,7 +9,7 @@ cdef class CornerTable:
 
     cpdef create_corner_from_vertex_face(self, dict vertices, list faces, dict vertices_faces)
 
-    cdef int is_clockwise(self, v0, v1, v2)
+    cdef int is_clockwise(self, list v0, list v1, list v2)
 
     cdef void _compute_V(self, list faces)
 
