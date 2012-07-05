@@ -236,7 +236,8 @@ class LacedRing(object):
                 if o[0] != -1:
                     co = self.oposite(o[0])
                     if co[0] == -1:
-                        print "No tratado", "%06d" % c, o, self.vertex(o[0]), self.is_t2_triangle(self.triangle(c))
+                        print "No tratado", (c, self.vertex(c), self.triangle(c), self.is_t2_triangle(self.triangle(c))), (o, self.vertex(o[0]), self.triangle(o[0]), self.is_t2_triangle(self.triangle(o[0]))), co
+                    
                     elif c != co[0]:
                         if self.to_canonical(c) == co[0]:
                             pass
@@ -745,7 +746,7 @@ class LacedRing(object):
             #colours[self.L[v0]] = 0, 255, 0
             #colours[self.R[v0]] = 0, 0, 255
 
-        no_skip = set()
+        #no_skip = set()
 
         #for t in xrange(self.number_triangles):
             #if self.is_t2_triangle(t):
@@ -760,9 +761,9 @@ class LacedRing(object):
                 #v2 = self.vertex(c2)
                 #faces.append((v0, v1, v2))
 
-                #colours[v0] = 255, 255, 255
-                #colours[v1] = 255, 255, 255
-                #colours[v2] = 255, 255, 255
+                #colours[v0] = 255,   0,   0
+                #colours[v1] = 255,   0,   0
+                #colours[v2] = 255,   0,   0
 
                 #if self.is_t2_triangle(t):
                     #render_next = False
