@@ -70,8 +70,6 @@ class LacedRing(object):
                 break
 
         self.mr = i
-        print "Self.MR", self.mr 
-        print "len edge ring", len(edge_ring.edges)
         j = 0
         for v in xrange(len(ct.vertices)):
             if v not in map_ct_lr:
@@ -90,10 +88,8 @@ class LacedRing(object):
         self.edge_ring = edge_ring
         self.ct = ct
         
-        print "Self.mr: ", self.mr
         for v0 in xrange(self.mr):
             v1 = self.next_vertex_ring(v0)
-            print "V0, V1", v0, v1
 
             c0 = ct.get_corner_v(map_lr_ct[v0])
             c1 = ct.get_corner_v(map_lr_ct[v1])
@@ -102,16 +98,14 @@ class LacedRing(object):
                 c0 = ct.swing(c0)
 
             if ct.get_vertex(ct.next_corner(c0)) == map_lr_ct[v1]:
-                l = ct.previous_corner(c0)
-                r = ct.get_oposite_corner(l)
-                vl = map_ct_lr[ct.get_vertex(l)]
-                vr = map_ct_lr[ct.get_vertex(r)]
-
-            else:
-                r = ct.next_corner(c0)
+                r = ct.previous_corner (c0)
                 l = ct.get_oposite_corner(r)
-                vl = map_ct_lr[ct.get_vertex(l)]
-                vr = map_ct_lr[ct.get_vertex(r)]
+            else:
+                l = ct.next_corner(c0)
+                r = ct.get_oposite_corner(l)
+
+            vl = map_ct_lr[ct.get_vertex(l)]
+            vr = map_ct_lr[ct.get_vertex(r)]
 
             self.L[v0] = [vl, 1, 0]
             self.R[v0] = [vr, 1, 0]
@@ -131,7 +125,6 @@ class LacedRing(object):
 
         self._handle_t0(ct, edge_ring, map_ct_lr, map_lr_ct)
         #print "OOO", edge_ring[0], ct.get_oposite_corner(edge_ring[ len(edge_ring) - 1 ])
-        print len(self.L), len(self.edge_ring.edges), self.mr
 
     def _handle_t0(self, ct, edge_ring, map_ct_lr, map_lr_ct):
         t0_triangles = set()
@@ -146,9 +139,6 @@ class LacedRing(object):
                or edge_ring.edges.get(v, -1) == pv \
                ):
                 t0_triangles.add(t_id)
-
-        print "================================"
-        print t0_triangles
 
         t_c_id = 8 * self.mr
         while t0_triangles:
@@ -236,39 +226,30 @@ class LacedRing(object):
                 else:
                     self.VOs[t][1] = self.oposite(v*8 + 6)[0]
                 
-            
-        print "\n\nVOs", len(self.VOs) , self.VOs
-        print "\n\n>>>", self.mr * 8, len(self.O), len(self.V), self.O, self.V
-
-        print "Numero triangulos", self.number_triangles
-        print "Testing oposite"
-
         for t in xrange(self.number_triangles):
             c0 = self.corner_triangle(t)
             c1 = self.next_corner(c0)
             c2 = self.next_corner(c1)
-
-            if self.is_t2_triangle(t):
-                print "triangulo", t, "eh t2?", self.is_t2_triangle(t)
 
             for c in (c0, c1, c2):
                 o = self.oposite(c)
                 if o[0] != -1:
                     co = self.oposite(o[0])
                     if co[0] == -1:
-                        print "No tratado", "%06d" % c, o, self.triangle(c)
+                        print "No tratado", "%06d" % c, o, self.vertex(o[0]), self.is_t2_triangle(self.triangle(c))
                     elif c != co[0]:
                         if self.to_canonical(c) == co[0]:
-                            print "Certo", "%06d" % c, o, co
+                            pass
+                        elif c == self.to_canonical(co[0]):
+                            pass
+                        elif self.to_canonical(c) == self.to_canonical(co[0]):
+                            pass
                         else:
-                            print "Erro", "%06d" % c, o, co, self.is_t2_triangle(t), self.is_t2_triangle(self.triangle(co[0])), self.to_canonical(c)
+                            print "Erro", "%06d" % c, o, co, self.is_t2_triangle(t), self.is_t2_triangle(self.triangle(co[0])), self.to_canonical(c), self.to_canonical(co[0]), self.oposite(co[0])
                     else:
-                        print "Certo", "%06d" % c, o, co
+                        pass
                 else:
                     print "No tratado", "%06d" % c, o, self.is_t2_triangle(t), self.triangle(c)
-
-        print ">>>", self.mr * 8, len(self.O), len(self.V)
-
 
     def vertex(self, c_id):
         """
@@ -385,15 +366,6 @@ class LacedRing(object):
         elif c_id % 8 == 5:
             o = 8*v + 1, 2
 
-        elif self.L[self.previous_vertex_ring(v)][0] == self.next_vertex_ring(v) and c_id % 8 ==2:
-            o = 8*self.previous_vertex_ring(v) + 5, 11
-        elif self.L[self.previous_vertex_ring(v)][0] == self.next_vertex_ring(v) and c_id % 8 ==1:
-            o = 8*v + 5, 12
-
-        elif self.R[self.previous_vertex_ring(v)][0] == self.next_vertex_ring(v) and c_id % 8 == 4:
-            o = 8*self.previous_vertex_ring(v) + 1, 13
-        elif self.R[self.previous_vertex_ring(v)][0] == self.next_vertex_ring(v) and c_id % 8 == 5:
-            o = 8*v+ 1, 14
 
         #                         v.l                          ^
         #                         o---------------------------o
@@ -520,6 +492,21 @@ class LacedRing(object):
         elif self.L[self.next_vertex_ring(self.L[v][0])][0] == self.previous_vertex_ring(v) and c_id % 8 == 2:
             o = 8*self.L[v][0] + 2, 6
 
+
+        #elif self.R[self.previous_vertex_ring(self.L[v][0])][0] == v:
+            #print "Manolo!", c_id % 8
+            #if c_id % 8 == 2:
+                #o = 8*self.L[v][0] + 6, 1024
+            #else:
+                #o = (-1, -1)
+
+        #elif self.next_vertex_ring(self.R[v][0]) == self.R[self.next_vertex_ring(v)][0]:
+            #print "Hello, manolo!"
+            #if c_id % 8 == 6:
+                #o = 8*self.R[v][0] + 2, 1025
+            #else:
+                #o = (-1, -1)
+
         #
         #                 v.r                      v.r.n
         #     =============o=========================o======>
@@ -563,38 +550,52 @@ class LacedRing(object):
         elif self.R[self.previous_vertex_ring(self.R[v][0])][0] == self.next_vertex_ring(v) and c_id % 8 == 6:
             o = 8*self.previous_vertex_ring(self.R[v][0]) + 6, 10
 
+        elif self.L[self.previous_vertex_ring(v)][0] == self.next_vertex_ring(v):
+            if c_id % 8 ==2:
+                o = 8*self.previous_vertex_ring(v) + 5, 11
+            elif c_id % 8 ==1:
+                o = 8*v + 5, 12
+            else:
+                return -1, -1
 
+        elif self.R[self.previous_vertex_ring(v)][0] == self.next_vertex_ring(v):
+            if c_id % 8 == 4:
+                o = 8*self.previous_vertex_ring(v) + 1, 13
+            elif c_id % 8 == 5:
+                o = 8*v+ 1, 14
+            else:
+                o = 8 * self.previous_vertex_ring(self.R[v][0]), 18
 
         else:
-            if self.L[self.previous_vertex_ring(v)][0] == self.next_vertex_ring(v):
-                print "Redundante L", c_id % 8, self.is_t2_triangle(t)
-            elif self.R[self.previous_vertex_ring(v)][0] == self.next_vertex_ring(v):
-                print "Redundante R", c_id % 8, self.is_t2_triangle(t)
-            else:
-                print "Sei la", c_id % 8, self.is_t2_triangle(t)
+            #if self.L[self.previous_vertex_ring(v)][0] == self.next_vertex_ring(v):
+                #print "Redundante L", c_id % 8, self.is_t2_triangle(t)
+            #elif self.R[self.previous_vertex_ring(v)][0] == self.next_vertex_ring(v):
+                #print "Redundante R", c_id % 8, self.is_t2_triangle(t)
+            #else:
+                #print "Sei la", c_id % 8, self.is_t2_triangle(t)
 
             return -1, -1
 
-        t = self.triangle(o[0])
-        ov = int(math.floor(o[0] / 8.0))
-        if self.is_t2_triangle(t) and \
-           (self.L[ov][0] == self.next_vertex_ring(self.next_vertex_ring(ov)) or\
-           self.R[ov][0] == self.next_vertex_ring(self.next_vertex_ring(ov))):
-            if o[0] % 8 == 0:
-                r = 1
-            elif o[0] % 8 == 1:
-                r = 2
-            elif o[0] % 8 == 2:
-                r = 0
+        #t = self.triangle(o[0])
+        #ov = int(math.floor(o[0] / 8.0))
+        #if self.is_t2_triangle(t) and \
+           #(self.L[ov][0] == self.next_vertex_ring(self.next_vertex_ring(ov)) or\
+           #self.R[ov][0] == self.next_vertex_ring(self.next_vertex_ring(ov))):
+            #if o[0] % 8 == 0:
+                #r = 1
+            #elif o[0] % 8 == 1:
+                #r = 2
+            #elif o[0] % 8 == 2:
+                #r = 0
             
-            elif o[0] % 8 == 4:
-                r = 6
-            elif o[0] % 8 == 5:
-                r = 4
-            elif o[0] % 8 == 6:
-                r = 5
+            #elif o[0] % 8 == 4:
+                #r = 6
+            #elif o[0] % 8 == 5:
+                #r = 4
+            #elif o[0] % 8 == 6:
+                #r = 5
 
-            o = 8*self.next_vertex_ring(ov) + r, 30
+            #o = 8*self.next_vertex_ring(ov) + r, 30, o[1]
 
         return o
 
@@ -746,25 +747,25 @@ class LacedRing(object):
 
         no_skip = set()
 
-        for t in xrange(self.number_triangles):
-            if self.is_t2_triangle(t):
-                continue
-            else:
-                c0 = self.corner_triangle(t)
-                c1 = self.next_corner(c0)
-                c2 = self.next_corner(c1)
+        #for t in xrange(self.number_triangles):
+            #if self.is_t2_triangle(t):
+                #continue
+            #else:
+                #c0 = self.corner_triangle(t)
+                #c1 = self.next_corner(c0)
+                #c2 = self.next_corner(c1)
 
-                v0 = self.vertex(c0)
-                v1 = self.vertex(c1)
-                v2 = self.vertex(c2)
-                faces.append((v0, v1, v2))
+                #v0 = self.vertex(c0)
+                #v1 = self.vertex(c1)
+                #v2 = self.vertex(c2)
+                #faces.append((v0, v1, v2))
 
-                colours[v0] = 255, 255, 255
-                colours[v1] = 255, 255, 255
-                colours[v2] = 255, 255, 255
+                #colours[v0] = 255, 255, 255
+                #colours[v1] = 255, 255, 255
+                #colours[v2] = 255, 255, 255
 
-                if self.is_t2_triangle(t):
-                    render_next = False
+                #if self.is_t2_triangle(t):
+                    #render_next = False
 
         #lines = []
         ##cv = self.edge_ring.edge_ring[0]
@@ -773,18 +774,19 @@ class LacedRing(object):
         ##nv = self.edge_ring.edges[v]
         ##lines.append((v, nv, v))
         ##v = nv
-        #for i in xrange(self.mr):
-            #v = self.ring[i]
-            #nv = self.ring[self.next_vertex_ring(i)]
+        for i in xrange(self.mr):
+            v = i
+            nv = self.next_vertex_ring(i)
             #cl[v]=  255,255,255
             #cl[nv]= 255,255,255
-            ##v = self.ct.get_vertex(v)
-            ##nv = self.ct.get_vertex(nv)
-            ##if nv == self.ct.get_vertex(self.ct.get_oposite_corner(cv)):
-                ##lines.append((v, nv, v))
-                ##break
-            #lines.append((v, nv, v))
-            ##v = nv
+            #v = self.ct.get_vertex(v)
+            #nv = self.ct.get_vertex(nv)
+            #if nv == self.ct.get_vertex(self.ct.get_oposite_corner(cv)):
+                #lines.append((v, nv, v))
+                #break
+            faces.append((v, self.L[v][0], nv))
+            faces.append((nv, self.R[v][0], v))
+            #v = nv
 
         #cl[self.ring[0]] = 255, 0, 0
         #cl[self.ring[-1]] = 0, 255, 0
