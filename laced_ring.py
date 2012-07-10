@@ -240,17 +240,17 @@ class LacedRing(object):
                     
                     elif c != co[0]:
                         if self.to_canonical(c) == co[0]:
-                            pass
+                            print "Certo 0", (c, self.vertex(c), self.triangle(c), self.is_t2_triangle(self.triangle(c))), (o, self.vertex(o[0]), self.triangle(o[0]), self.is_t2_triangle(self.triangle(o[0]))), co
                         elif c == self.to_canonical(co[0]):
-                            pass
+                            print "Certo 1", (c, self.vertex(c), self.triangle(c), self.is_t2_triangle(self.triangle(c))), (o, self.vertex(o[0]), self.triangle(o[0]), self.is_t2_triangle(self.triangle(o[0]))), co
                         elif self.to_canonical(c) == self.to_canonical(co[0]):
-                            pass
+                            print "Certo 2", (c, self.vertex(c), self.triangle(c), self.is_t2_triangle(self.triangle(c))), (o, self.vertex(o[0]), self.triangle(o[0]), self.is_t2_triangle(self.triangle(o[0]))), co
                         else:
-                            print "Erro", "%06d" % c, o, co, self.is_t2_triangle(t), self.is_t2_triangle(self.triangle(co[0])), self.to_canonical(c), self.to_canonical(co[0]), self.oposite(co[0])
+                            print "Erro", (c, self.vertex(c), self.triangle(c), self.is_t2_triangle(self.triangle(c))), (o, self.vertex(o[0]), self.triangle(o[0]), self.is_t2_triangle(self.triangle(o[0]))), (co, self.vertex(co[0]), self.triangle(co[0]), self.is_t2_triangle(self.triangle(co[0])))
                     else:
-                        pass
+                        print "Certo 3", (c, self.vertex(c), self.triangle(c), self.is_t2_triangle(self.triangle(c))), (o, self.vertex(o[0]), self.triangle(o[0]), self.is_t2_triangle(self.triangle(o[0]))), (co, self.vertex(co[0]), self.triangle(co[0]), self.is_t2_triangle(self.triangle(co[0])))
                 else:
-                    print "No tratado", "%06d" % c, o, self.is_t2_triangle(t), self.triangle(c)
+                    print "No tratado 2",(c, self.vertex(c), self.triangle(c), self.is_t2_triangle(self.triangle(c)))
 
     def vertex(self, c_id):
         """
@@ -493,6 +493,13 @@ class LacedRing(object):
         elif self.L[self.next_vertex_ring(self.L[v][0])][0] == self.previous_vertex_ring(v) and c_id % 8 == 2:
             o = 8*self.L[v][0] + 2, 6
 
+        # TODO: Verify if it's correct.
+        elif self.next_vertex_ring(self.L[v][0]) == self.L[self.previous_vertex_ring(v)][0] and c_id % 8 == 2:
+            o = 8 * self.L[v][0] + 2, 1036
+
+        elif self.L[self.next_vertex_ring(self.L[v][0])][0] == v and c_id % 8 == 2:
+            o = 8 * self.L[v][0] + 2, 3033
+
 
         #elif self.R[self.previous_vertex_ring(self.L[v][0])][0] == v:
             #print "Manolo!", c_id % 8
@@ -526,8 +533,14 @@ class LacedRing(object):
         #  <==*=========================o==================
         #     v                        v.p
         #
-        elif self.R[self.next_vertex_ring(self.R[v][0])][0] == self.previous_vertex_ring(v) and c_id % 8 == 4:
-            o = 8*self.next_vertex_ring(self.R[v][0]) + 4, 9
+        elif self.R[self.previous_vertex_ring(self.R[v][0])][0] == self.next_vertex_ring(v) and c_id % 8 == 4:
+            o = 8*self.R[v][0] + 4, 9
+
+        elif self.next_vertex_ring(self.R[v][0]) == self.R[self.previous_vertex_ring(v)][0] and c_id % 8 == 4:
+            o = 8 * self.R[v][0] + 4, 9876
+
+        elif self.R[self.next_vertex_ring(self.R[v][0])][0] == v and c_id % 8 == 4:
+            o = 8 * self.R[v][0] + 4, 7410
 
         #
         #                v.r.p                       v.r
