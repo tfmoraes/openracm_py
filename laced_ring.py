@@ -131,13 +131,9 @@ class LacedRing(object):
         for t_id in xrange(len(ct.V) / 3):
             c, nc, pc = ct.iterate_triangle_corner(t_id)
             v, nv, pv = [ct.get_vertex(i) for i in (c, nc, pc)]
-            if not (edge_ring.edges.get(v, -1) == nv \
-               or edge_ring.edges.get(nv, -1) == pv \
-               or edge_ring.edges.get(pv, -1) == v \
-               or edge_ring.edges.get(nv, -1) == v \
-               or edge_ring.edges.get(pv, -1) == nv \
-               or edge_ring.edges.get(v, -1) == pv \
-               ):
+            if not (edge_ring.edges.get(v, -1) in (nv, pv) \
+               or edge_ring.edges.get(nv, -1) in (pv, v) \
+               or edge_ring.edges.get(pv, -1) in (v, nv)):
                 t0_triangles.add(t_id)
 
         t_c_id = 8 * self.mr
