@@ -19,16 +19,17 @@ cdef class CornerTable:
         self._compute_O(vertices, faces, vertices_faces)
 
     cdef int is_clockwise(self, list v0, list v1, list v2):
+        # Based on this link http://mathforum.org/library/drmath/view/55343.html
         u = v1[0] - v0[0], v1[1] - v0[1], v1[2] - v0[2]
         v = v2[0] - v0[0], v2[1] - v0[1], v2[2] - v0[2]
-        n = numpy.cross(u, v)
+        vn = numpy.cross(u, v)
 
-        d = numpy.array([[1, v0[0], v0[1], v0[2]],
-                         [1, v1[0], v1[1], v1[2]],
-                         [1, v2[0], v2[1], v2[2]],
-                         [1, n[0], n[1], n[2]]])
+        d = numpy.array([[v0[0], v0[1], v0[2], 1],
+                         [v1[0], v1[1], v1[2], 1],
+                         [v2[0], v2[1], v2[2], 1],
+                         [vn[0], vn[1], vn[2], 1]]), 
 
-        return numpy.linalg.det(d) >= 0
+        return numpy.linalg.det(d) > 0
 
     cdef void _compute_V(self, list faces):
         cdef list face
