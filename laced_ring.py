@@ -370,8 +370,7 @@ class LacedRing(object):
                 #else:
                     #self.VOs[t][1] = self.oposite(v*8 + 6)[0]
 
-        print self.VOs
-                
+    def test(self):
         for t in xrange(self.number_triangles):
             c0 = self.corner_triangle(t)
             c1 = self.next_corner(c0)
