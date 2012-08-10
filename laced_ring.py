@@ -1137,7 +1137,7 @@ def _expand_ring(ct, s, min_, max_):
             ##edge_ring.add_edge((c, s))
             #return m_v, m_t, edge_ring
 
-def expand_ring_into_cluster(ct):
+def expand_ring(ct):
     #s = ct.get_corner_f(random.randint(min(clusters[ncluster]),
                                        #max(clusters[ncluster])))
     n_too_little = 0
@@ -1212,7 +1212,7 @@ def test_laced_ring(vertices, faces, cluster_size, pmin):
     #ecluster = {}
     #for i, cluster in enumerate(clusters):
         #if len(cluster) > 1:
-            #ncluster, m_t = expand_ring_into_cluster(ct, cluster, pmin)
+            #ncluster, m_t = expand_ring(ct, cluster, pmin)
             #print i, len(ncluster), len(m_t) / float(len(cluster))
             #ecluster.update(ncluster)
 
@@ -1224,7 +1224,7 @@ def test_laced_ring(vertices, faces, cluster_size, pmin):
             #colours[v] = (255, 255, 255)
     #writer = ply_writer.PlyWriter('/tmp/saida.ply')
     #writer.from_faces_vertices_list(faces, vertices, colours)
-    ncluster, m_t, edge_ring = expand_ring_into_cluster(ct)
+    ncluster, m_t, edge_ring = expand_ring(ct)
     del ncluster
     del m_t
     edge_ring.save_edge()
