@@ -658,6 +658,9 @@ class LacedRing(object):
         elif self.L[self.previous_vertex_ring(self.L[v][0])][0] == self.next_vertex_ring(v) and c_id % 8 == 2:
             o = 8 * self.L[v][0] + 2, 4044
 
+        elif self.L[self.L[v][0]][0] == v and c_id % 8 == 2:
+            o = 8 * self.L[v][0] + 2, 5055
+
 
         #elif self.R[self.previous_vertex_ring(self.L[v][0])][0] == v:
             #print "Manolo!", c_id % 8
@@ -699,6 +702,9 @@ class LacedRing(object):
 
         elif self.R[self.next_vertex_ring(self.R[v][0])][0] == v and c_id % 8 == 4:
             o = 8 * self.R[v][0] + 4, 7410
+
+        elif self.R[self.R[v][0]][0] == v and c_id % 8 == 4:
+            o = 8 * self.R[v][0] + 4, 9099
 
         #
         #                v.r.p                       v.r
