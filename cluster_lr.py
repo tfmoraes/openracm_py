@@ -17,46 +17,72 @@ class ClusterManager(object):
         self.cfile = open(filename)
         self.mr = int(self.cfile.readline().strip())
 
+        self.__vertices = {}
+        self.__L = {}
+        self.__R = {}
+        self.__O = {}
+        self.__V = {}
+        self.__C = {}
+        self.__VOs = {}
+
+        self.vertices = _DictGeomElem(self, self.__vertices)
+        self.L = _DictGeomElem(self, self.__L)
+        self.R = _DictGeomElem(self, self.__R)
+        self.O = _DictGeomElem(self, self.__O)
+        self.V = _DictGeomElem(self, self.__V)
+        self.C = _DictGeomElem(self, self.__C)
+        self.VOs = _DictGeomElem(self, self.__VOs)
+
     def load_cluster(self, cl):
         init_cluster, cluster_size, iface, eface = [int(i) for i in self.index_clusters[cl].split()]
         self.cfile.seek(init_cluster)
         str_cluster = self.cfile.read(cluster_size)
-        return str_cluster.split('\n')
+        
+        cluster = str_cluster.split('\n')
+        for l in cluster:
+            if l.startswith('v'):
+                tmp = l.split()
+                v_id = int(tmp[1])
+                self.__vertices[v_id] = [float(i) for i in tmp[2:]]
+            elif l.startswith('L'):
+                tmp = l.split()
+                self.__L[v_id] = [int(tmp[1]), 0, 0]
+            elif l.startswith('R'):
+                tmp = l.split()
+                self.__R[v_id] = [int(tmp[1]), 0, 0]
 
     def load_vertex_cluster(self, v_id):
         cl = self.index_vertices[str(v_id)]
+        print "Loading Cluster", cl
         return self.load_cluster(cl)
 
 
 class _DictGeomElem(object):
-    def __init__(self, clmrg):
-        self._elems = {}
+    def __init__(self, clmrg, elems):
+        self._elems = elems
         self._clmrg = clmrg
 
     def __getitem__(self, key):
         if key not in self._elems:
-            cluster = self._clmrg.load_vertex_cluster(key)
-
-            for l in cluster:
-                if l.startswith('v'):
-                    tmp = l.split()
-                    self._elems[int(tmp[1])] = [float(i) for i in tmp[2:]]
-
+            self._clmrg.load_vertex_cluster(key)
         return self._elems[key]
+
+    def __len__(self):
+        return len(self._elems)
 
 class ClusteredLacedRing(laced_ring.LacedRing):
     def __init__(self, clmrg):
         self.cluster_manager = clmrg
-        self.vertices = _DictGeomElem(self.cluster_manager)
+        self.vertices = clmrg.vertices
         #self.faces = faces
         #self.edge_ring = edge_ring
         #self.m_t = m_t
-        self.L = _DictGeomElem(self.cluster_manager)
-        self.R = _DictGeomElem(self.cluster_manager)
-        self.O = _DictGeomElem(self.cluster_manager)
-        self.V = _DictGeomElem(self.cluster_manager)
-        self.C = _DictGeomElem(self.cluster_manager)
-        self.VOs = _DictGeomElem(self.cluster_manager)
+        self.L = clmrg.L
+        self.R = clmrg.R
+        self.O = clmrg.O
+        self.V = clmrg.V
+        self.C = clmrg.C
+        self.VOs = clmrg.VOs
         self.number_triangles = 0
 
         self.mr = self.cluster_manager.mr
@@ -131,7 +157,12 @@ def main():
     elif sys.argv[1] == '-o':
         clmrg = ClusterManager(sys.argv[2])
         cl_lr = ClusteredLacedRing(clmrg)
-        print cl_lr.get_vertex_coord(int(sys.argv[3]))
+        cl_lr.to_vertices_faces()
+
+        for i in xrange(cl_lr.mr):
+            print i, cl_lr.get_vertex_coord(i)
+            print cl_lr.L[i], cl_lr.get_vertex_coord(cl_lr.L[i][0])
+            print cl_lr.R[i], cl_lr.get_vertex_coord(cl_lr.R[i][0])
 
 
 if __name__ == '__main__':
