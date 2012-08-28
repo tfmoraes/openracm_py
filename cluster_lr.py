@@ -38,18 +38,28 @@ class ClusterManager(object):
         self.cfile.seek(init_cluster)
         str_cluster = self.cfile.read(cluster_size)
         
+        V = {}
+        L = {}
+        R = {}
         cluster = str_cluster.split('\n')
         for l in cluster:
             if l.startswith('v'):
                 tmp = l.split()
                 v_id = int(tmp[1])
-                self.__vertices[v_id] = [float(i) for i in tmp[2:]]
+                V[v_id] = [float(i) for i in tmp[2:]]
             elif l.startswith('L'):
                 tmp = l.split()
-                self.__L[v_id] = [int(tmp[1]), 0, 0]
+                L[v_id] = [int(tmp[1]), 0, 0]
             elif l.startswith('R'):
                 tmp = l.split()
-                self.__R[v_id] = [int(tmp[1]), 0, 0]
+                R[v_id] = [int(tmp[1]), 0, 0]
+        
+        minv = min(V)
+        maxv = max(V)
+        self.__vertices[(minv, maxv)] = V
+        self.__L[(minv, maxv)] = L
+        self.__R[(minv, maxv)] = R
+        
 
     def load_vertex_cluster(self, v_id):
         cl = self.index_vertices[str(v_id)]
@@ -63,9 +73,15 @@ class _DictGeomElem(object):
         self._clmrg = clmrg
 
     def __getitem__(self, key):
-        if key not in self._elems:
+        for minv, maxv in sorted(self._elems):
+            if minv <= key <= maxv:
+                break
+        else:
             self._clmrg.load_vertex_cluster(key)
-        return self._elems[key]
+            for minv, maxv in sorted(self._elems):
+                if minv <= key <= maxv:
+                    break
+        return self._elems[(minv, maxv)][key]
 
     def __len__(self):
         return len(self._elems)
@@ -157,7 +173,7 @@ def main():
     elif sys.argv[1] == '-o':
         clmrg = ClusterManager(sys.argv[2])
         cl_lr = ClusteredLacedRing(clmrg)
-        cl_lr.to_vertices_faces()
+        #cl_lr.to_vertices_faces()
 
         for i in xrange(cl_lr.mr):
             print i, cl_lr.get_vertex_coord(i)
