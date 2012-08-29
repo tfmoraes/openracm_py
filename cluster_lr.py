@@ -7,7 +7,7 @@ import laced_ring
 import ply_reader
 
 class ClusterManager(object):
-    def __init__(self, filename):
+    def __init__(self, filename, qsize):
         self.filename = filename
         index_vertices_file = os.path.splitext(filename)[0] + '_v.hdr'
         index_clusters_file = os.path.splitext(filename)[0] + '_c.hdr'
@@ -16,6 +16,9 @@ class ClusterManager(object):
 
         self.cfile = open(filename)
         self.mr = int(self.cfile.readline().strip())
+
+        self.queue = []
+        self.queue_size = qsize
 
         self.__vertices = {}
         self.__L = {}
@@ -37,6 +40,13 @@ class ClusterManager(object):
         init_cluster, cluster_size, iface, eface = [int(i) for i in self.index_clusters[cl].split()]
         self.cfile.seek(init_cluster)
         str_cluster = self.cfile.read(cluster_size)
+
+        if len(self.queue) == self.queue_size:
+            print "The queue is full"
+            k = self.queue.pop(0)
+            del self.__vertices[k]
+            del self.__L[k]
+            del self.__R[k]
         
         V = {}
         L = {}
@@ -59,6 +69,9 @@ class ClusterManager(object):
         self.__vertices[(minv, maxv)] = V
         self.__L[(minv, maxv)] = L
         self.__R[(minv, maxv)] = R
+
+
+        self.queue.append((minv, maxv))
         
 
     def load_vertex_cluster(self, v_id):
@@ -171,7 +184,7 @@ def main():
         save_clusters(lr, clusters, sys.argv[4])
 
     elif sys.argv[1] == '-o':
-        clmrg = ClusterManager(sys.argv[2])
+        clmrg = ClusterManager(sys.argv[2], int(sys.argv[3]))
         cl_lr = ClusteredLacedRing(clmrg)
         #cl_lr.to_vertices_faces()
 
