@@ -20,6 +20,9 @@ class ClusterManager(object):
         self.queue = []
         self.queue_size = qsize
 
+        self._n_load_clusters = {}
+        self._n_unload_clusters = {}
+
         self.__vertices = {}
         self.__L = {}
         self.__R = {}
@@ -47,6 +50,11 @@ class ClusterManager(object):
             del self.__vertices[k]
             del self.__L[k]
             del self.__R[k]
+
+            try:
+                self._n_unload_clusters[k] += 1
+            except KeyError:
+                self._n_unload_clusters[k] = 1
         
         V = {}
         L = {}
@@ -72,12 +80,22 @@ class ClusterManager(object):
 
 
         self.queue.append((minv, maxv))
+
+        try:
+            self._n_load_clusters[(minv, maxv)] += 1
+        except KeyError:
+            self._n_load_clusters[(minv, maxv)] = 1
+            self._n_unload_clusters[(minv, maxv)] = 1
         
 
     def load_vertex_cluster(self, v_id):
         cl = self.index_vertices[str(v_id)]
         print "Loading Cluster", cl
         return self.load_cluster(cl)
+
+    def print_cluster_info(self):
+        for k in sorted(self._n_load_clusters):
+            print k, self._n_load_clusters[k], self._n_unload_clusters[k]
 
 
 class _DictGeomElem(object):
@@ -192,6 +210,9 @@ def main():
             print i, cl_lr.get_vertex_coord(i)
             print cl_lr.L[i], cl_lr.get_vertex_coord(cl_lr.L[i][0])
             print cl_lr.R[i], cl_lr.get_vertex_coord(cl_lr.R[i][0])
+
+        if "-d" in sys.argv:
+            clmrg.print_cluster_info()
 
 
 if __name__ == '__main__':
