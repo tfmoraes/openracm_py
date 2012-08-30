@@ -85,7 +85,7 @@ class ClusterManager(object):
             self._n_load_clusters[(minv, maxv)] += 1
         except KeyError:
             self._n_load_clusters[(minv, maxv)] = 1
-            self._n_unload_clusters[(minv, maxv)] = 1
+            self._n_unload_clusters[(minv, maxv)] = 0
         
 
     def load_vertex_cluster(self, v_id):
