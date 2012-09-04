@@ -15,7 +15,6 @@ class ClusterManager(object):
         self.index_clusters = bsddb.btopen(index_clusters_file)
 
         self.cfile = open(filename)
-        self.mr = int(self.cfile.readline().strip())
 
         self.queue = []
         self.queue_size = qsize
@@ -38,6 +37,11 @@ class ClusterManager(object):
         self.V = _DictGeomElem(self, self.__V)
         self.C = _DictGeomElem(self, self.__C)
         self.VOs = _DictGeomElem(self, self.__VOs)
+
+    def load_header(self):
+        self.mr = int(self.cfile.readline().split(':')[1].strip())
+        self.m = int(self.cfile.readline().split(':')[1].strip())
+        self.number_triangles = int(self.cfile.readline().split(':')[1].strip())
 
     def load_cluster(self, cl):
         init_cluster, cluster_size, iface, eface = [int(i) for i in self.index_clusters[cl].split()]
@@ -138,7 +142,6 @@ class ClusteredLacedRing(laced_ring.LacedRing):
         return self.vertices[v_id]
 
 
-
 def create_clusters(lr, cluster_size):
     clusters = []
     n = -1
@@ -155,6 +158,28 @@ def create_clusters(lr, cluster_size):
 
         v_id += 1
 
+    n += 1
+    clusters.append([])
+    for v_id in xrange(lr.mr, lr.m):
+        clusters[n].append(('v', v_id, lr.vertices[v_id][0], lr.vertices[v_id][1], lr.vertices[v_id][2]))
+
+    print lr.mr, lr.m, lr.number_triangles, len(lr.vertices)
+    for t in xrange(lr.mr * 2, lr.number_triangles):
+        c0 = lr.corner_triangle(t)
+        c1 = lr.next_corner(c0)
+        c2 = lr.previous_corner(c0)
+        clusters[n].append(('V', c0, lr.vertex(c0)))
+        clusters[n].append(('C', lr.vertex(c0), c0))
+        clusters[n].append(('O', c0, lr.oposite(c0)[0]))
+
+        clusters[n].append(('V', c1, lr.vertex(c1)))
+        clusters[n].append(('C', lr.vertex(c1), c1))
+        clusters[n].append(('O', c1, lr.oposite(c1)[0]))
+
+        clusters[n].append(('V', c2, lr.vertex(c2)))
+        clusters[n].append(('C', lr.vertex(c2), c2))
+        clusters[n].append(('O', c2, lr.oposite(c2)[0]))
+
     return clusters
 
 def save_clusters(lr, clusters, filename):
@@ -165,20 +190,25 @@ def save_clusters(lr, clusters, filename):
         index_vertices = bsddb.btopen(index_vertices_file)
         index_clusters = bsddb.btopen(index_clusters_file)
 
-        cfile.write("%d\n" % lr.mr)
+        cfile.write("edge vertex: %d\n" % lr.mr)
+        cfile.write("vertex: %d\n" % lr.m)
+        cfile.write("triangles: %d\n" % lr.number_triangles)
 
         for i, cluster in enumerate(clusters):
             #cfile.write("Cluster %d\n" % i)
             init_cluster = cfile.tell()
+            minc, maxc = 2**32, 0
             for elem in cluster:
                 if elem[0] == 'v':
+                    maxc = max(elem[1], maxc)
+                    minc = min(elem[1], minc)
                     index_vertices[str(elem[1])] = str(i)
                 cfile.write(" ".join([str(e) for e in elem]) + "\n")
             cluster_size = cfile.tell() - init_cluster
             index_clusters[str(i)] = "%d %d %d %d" % (init_cluster,
                                                              cluster_size,
-                                                             sorted(cluster)[0][1],
-                                                             sorted(cluster)[-1][1])
+                                                             minc,
+                                                             maxc)
        
 
 def main():
