@@ -15,6 +15,7 @@ class ClusterManager(object):
         self.index_clusters = bsddb.btopen(index_clusters_file)
 
         self.cfile = open(filename)
+        self.load_header()
 
         self.queue = []
         self.queue_size = qsize
@@ -60,27 +61,51 @@ class ClusterManager(object):
             except KeyError:
                 self._n_unload_clusters[k] = 1
         
-        V = {}
+        vertices = {}
+
         L = {}
         R = {}
+
+        V = {}
+        C = {}
+        O = {}
         cluster = str_cluster.split('\n')
         for l in cluster:
             if l.startswith('v'):
                 tmp = l.split()
                 v_id = int(tmp[1])
-                V[v_id] = [float(i) for i in tmp[2:]]
+                vertices[v_id] = [float(i) for i in tmp[2:]]
             elif l.startswith('L'):
                 tmp = l.split()
                 L[v_id] = [int(tmp[1]), 0, 0]
             elif l.startswith('R'):
                 tmp = l.split()
                 R[v_id] = [int(tmp[1]), 0, 0]
+
+            elif l.startswith('V'):
+                tmp = l.split()
+                c_id = int[tmp[1]]
+                v_id = int[tmp[2]]
+                V[c_id] = v_id
+            elif l.startswith('C'):
+                tmp = l.split()
+                v_id = int[tmp[1]]
+                c_id = int[tmp[2]]
+                C[v_id] = c_id
+            elif l.startswith('O'):
+                tmp = l.split()
+                c_id = int[tmp[1]]
+                c_o = int[tmp[2]]
+                O[c_id] = c_o
         
-        minv = min(V)
-        maxv = max(V)
-        self.__vertices[(minv, maxv)] = V
+        minv = min(vertices)
+        maxv = max(vertices)
+        self.__vertices[(minv, maxv)] = vertices
         self.__L[(minv, maxv)] = L
         self.__R[(minv, maxv)] = R
+        self.__V[(minv, maxv)] = V
+        self.__C[(minv, maxv)] = C
+        self.__O[(minv, maxv)] = O
 
 
         self.queue.append((minv, maxv))
@@ -116,6 +141,8 @@ class _DictGeomElem(object):
             for minv, maxv in sorted(self._elems):
                 if minv <= key <= maxv:
                     break
+            else:
+                return
         return self._elems[(minv, maxv)][key]
 
     def __len__(self):
@@ -134,9 +161,10 @@ class ClusteredLacedRing(laced_ring.LacedRing):
         self.V = clmrg.V
         self.C = clmrg.C
         self.VOs = clmrg.VOs
-        self.number_triangles = 0
 
         self.mr = self.cluster_manager.mr
+        self.m = self.cluster_manager.m
+        self.number_triangles = self.cluster_manager.number_triangles
 
     def get_vertex_coord(self, v_id):
         return self.vertices[v_id]
@@ -240,6 +268,15 @@ def main():
             print i, cl_lr.get_vertex_coord(i)
             print cl_lr.L[i], cl_lr.get_vertex_coord(cl_lr.L[i][0])
             print cl_lr.R[i], cl_lr.get_vertex_coord(cl_lr.R[i][0])
+
+        print "Triangles", cl_lr.number_triangles
+        for t in xrange(cl_lr.number_triangles):
+            c0 = cl_lr.corner_triangle(t)
+            c1 = cl_lr.next_corner(c0)
+            c2 = cl_lr.next_corner(c1)
+
+            print t, cl_lr.vertex(c0),cl_lr.vertex(c1),cl_lr.vertex(c2)
+
 
         if "-d" in sys.argv:
             clmrg.print_cluster_info()
