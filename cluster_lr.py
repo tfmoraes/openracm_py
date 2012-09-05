@@ -2,9 +2,36 @@ import bsddb
 import os
 import sys
 
+import numpy as np
+
 import cy_corner_table
 import laced_ring
 import ply_reader
+
+def calculate_d(cllr, vi):
+    t = 0
+    n = 0.0
+    nvi = np.array(cllr.vertices[vi])
+    for vj in cllr.get_ring0(vi):
+        nvj = np.array(cllr.vertices[vj])
+        t = t + (nvj - nvi)
+        n += 1.0
+
+    return t / n
+        
+    
+
+def  taubin_smooth(cllr, l, m, steps):
+    for s in xrange(steps):
+        D = {}
+        for i in xrange(cllr.m):
+            D[i] = calculate_d(cllr, i)
+
+        for i in xrange(cllr.m):
+            p = np.array(cllr.vertices[i])
+            pl = p + l*D[i]
+            nx, ny, nz = pl
+            cllr.vertices[i] = nx, ny, nz
 
 class ClusterManager(object):
     def __init__(self, filename, qsize):
@@ -77,10 +104,10 @@ class ClusterManager(object):
                 vertices[v_id] = [float(i) for i in tmp[2:]]
             elif l.startswith('L'):
                 tmp = l.split()
-                L[v_id] = [int(tmp[1]), 0, 0]
+                L[v_id] = [int(tmp[1]), int(tmp[2]), int(tmp[3])]
             elif l.startswith('R'):
                 tmp = l.split()
-                R[v_id] = [int(tmp[1]), 0, 0]
+                R[v_id] = [int(tmp[1]), int(tmp[2]), int(tmp[3])]
 
             elif l.startswith('V'):
                 tmp = l.split()
@@ -118,6 +145,7 @@ class ClusterManager(object):
         
 
     def load_vertex_cluster(self, v_id):
+        print ">>>", v_id
         cl = self.index_vertices[str(v_id)]
         print "Loading Cluster", cl
         return self.load_cluster(cl)
@@ -181,8 +209,8 @@ def create_clusters(lr, cluster_size):
             clusters.append([])
 
         clusters[n].append(('v', v_id, lr.vertices[v_id][0], lr.vertices[v_id][1], lr.vertices[v_id][2]))
-        clusters[n].append(('L', lr.L[v_id][0]))
-        clusters[n].append(('R', lr.R[v_id][0]))
+        clusters[n].append(('L', lr.L[v_id][0], lr.L[v_id][1], lr.L[v_id][2]))
+        clusters[n].append(('R', lr.R[v_id][0], lr.R[v_id][1], lr.R[v_id][2]))
 
         v_id += 1
 
@@ -264,18 +292,20 @@ def main():
         cl_lr = ClusteredLacedRing(clmrg)
         #cl_lr.to_vertices_faces()
 
-        for i in xrange(cl_lr.mr):
-            print i, cl_lr.get_vertex_coord(i)
-            print cl_lr.L[i], cl_lr.get_vertex_coord(cl_lr.L[i][0])
-            print cl_lr.R[i], cl_lr.get_vertex_coord(cl_lr.R[i][0])
+        #for i in xrange(cl_lr.mr):
+            #print i, cl_lr.get_vertex_coord(i)
+            #print cl_lr.L[i], cl_lr.get_vertex_coord(cl_lr.L[i][0])
+            #print cl_lr.R[i], cl_lr.get_vertex_coord(cl_lr.R[i][0])
 
-        print "Triangles", cl_lr.number_triangles
-        for t in xrange(cl_lr.number_triangles):
-            c0 = cl_lr.corner_triangle(t)
-            c1 = cl_lr.next_corner(c0)
-            c2 = cl_lr.next_corner(c1)
+        #print "Triangles", cl_lr.number_triangles
+        #for t in xrange(cl_lr.number_triangles):
+            #c0 = cl_lr.corner_triangle(t)
+            #c1 = cl_lr.next_corner(c0)
+            #c2 = cl_lr.next_corner(c1)
 
-            print t, cl_lr.vertex(c0),cl_lr.vertex(c1),cl_lr.vertex(c2)
+            ##print t, cl_lr.vertex(c0),cl_lr.vertex(c1),cl_lr.vertex(c2)
+
+        taubin_smooth(cl_lr, 0.5, -0.53, 3)
 
 
         if "-d" in sys.argv:
