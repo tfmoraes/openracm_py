@@ -869,7 +869,7 @@ class LacedRing(object):
         returns the next corner related to the same vertex from c_id in next
         triangle around that vertex in clockwise order.
         """
-        return self.next_corner(self.oposite(self.next_corner(c_id)))
+        return self.next_corner(self.oposite(self.next_corner(c_id))[0])
 
     def next_vertex_ring(self, v):
         """
@@ -882,6 +882,27 @@ class LacedRing(object):
         Returns the previous vertex on the edge ring for vertex `v'
         """
         return (v + self.mr - 1) % self.mr
+
+    def get_ring0(self, v_id):
+        c_id = self.to_canonical(self.corner_vertex(v_id))
+        c = c_id
+        ring0 = set()
+        while 1:
+            cn = self.next_corner(c)
+            cp = self.previous_corner(c)
+            vn = self.vertex(cn)
+            vp = self.vertex(cp)
+
+            ring0.add(vn)
+            ring0.add(vp)
+
+            c = self.swing(c)
+            print c, c_id
+            if c == c_id:
+                break
+        return ring0
+            
+
 
     def is_t2_triangle(self, t_id):
         if t_id >= 2*self.mr:
@@ -1008,7 +1029,7 @@ class LacedRing(object):
         #cl[self.ring[-1]] = 0, 255, 0
 
         writer = ply_writer.PlyWriter('/tmp/saida_linhas.ply')
-        writer.from_faces_vertices_list(lines, self.vertices)
+        writer.from_faces_vertices_list(lines, self.vertices._elems.values())
 
         return self.vertices, faces, colours
                          
