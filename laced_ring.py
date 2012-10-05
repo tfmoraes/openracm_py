@@ -506,13 +506,13 @@ class LacedRing(object):
         # the triangle t related to the given corner is a expensive triangle,
         # so it's necessary to lookup VOs structure to find c.o.
         
-        elif c_id % 8 == 0 and self.is_expensive_triangle(t) and self.VOs[v][0] != -1:
+        elif c_id % 8 == 0 and self.is_expensive_triangle(t) and self.VOs[v] and self.VOs[v][0] != -1:
             o = self.VOs[v][0], 40
-        elif c_id % 8 == 2 and self.is_expensive_triangle(t) and self.VOs[v][1] != -1:           
+        elif c_id % 8 == 2 and self.is_expensive_triangle(t) and self.VOs[v] and self.VOs[v][1] != -1:           
             o = self.VOs[v][1], 41
-        elif c_id % 8 == 4 and self.is_expensive_triangle(t) and self.VOs[v][2] != -1:           
+        elif c_id % 8 == 4 and self.is_expensive_triangle(t) and self.VOs[v] and self.VOs[v][2] != -1:           
             o = self.VOs[v][2], 42
-        elif c_id % 8 == 6 and self.is_expensive_triangle(t) and self.VOs[v][3] != -1:           
+        elif c_id % 8 == 6 and self.is_expensive_triangle(t) and self.VOs[v] and self.VOs[v][3] != -1:           
             o = self.VOs[v][3], 43
 
         elif c_id % 8 == 2 and self.is_t2_triangle(t) and self.to_canonical(c_id) == c_id:
