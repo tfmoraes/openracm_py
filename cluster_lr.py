@@ -37,8 +37,10 @@ class ClusterManager(object):
     def __init__(self, filename, qsize):
         self.filename = filename
         index_vertices_file = os.path.splitext(filename)[0] + '_v.hdr'
+        index_corner_vertices_file = os.path.splitext(filename)[0] + '_cv.hdr'
         index_clusters_file = os.path.splitext(filename)[0] + '_c.hdr'
         self.index_vertices = bsddb.btopen(index_vertices_file)
+        self.index_corners_vertices = bsddb.btopen(index_corner_vertices_file)
         self.index_clusters = bsddb.btopen(index_clusters_file)
 
         self.cfile = open(filename)
@@ -58,13 +60,13 @@ class ClusterManager(object):
         self.__C = {}
         self.__VOs = {}
 
-        self.vertices = _DictGeomElem(self, self.__vertices)
-        self.L = _DictGeomElem(self, self.__L)
-        self.R = _DictGeomElem(self, self.__R)
-        self.O = _DictGeomElem(self, self.__O)
-        self.V = _DictGeomElem(self, self.__V)
-        self.C = _DictGeomElem(self, self.__C)
-        self.VOs = _DictGeomElem(self, self.__VOs)
+        self.vertices = _DictGeomElem(self, 'vertices', self.__vertices)
+        self.L = _DictGeomElem(self, 'L', self.__L)
+        self.R = _DictGeomElem(self, 'R', self.__R)
+        self.O = _DictGeomElem(self, 'O', self.__O)
+        self.V = _DictGeomElem(self, 'V', self.__V)
+        self.C = _DictGeomElem(self, 'C', self.__C)
+        self.VOs = _DictGeomElem(self, 'VOs', self.__VOs)
 
     def load_header(self):
         self.mr = int(self.cfile.readline().split(':')[1].strip())
@@ -82,6 +84,10 @@ class ClusterManager(object):
             del self.__vertices[k]
             del self.__L[k]
             del self.__R[k]
+            del self.__VOs[k]
+            del self.__O[k]
+            del self.__V[k]
+            del self.__C[k]
 
             try:
                 self._n_unload_clusters[k] += 1
@@ -92,6 +98,7 @@ class ClusterManager(object):
 
         L = {}
         R = {}
+        VOs = {}
 
         V = {}
         C = {}
@@ -108,32 +115,44 @@ class ClusterManager(object):
             elif l.startswith('R'):
                 tmp = l.split()
                 R[v_id] = [int(tmp[1]), int(tmp[2]), int(tmp[3])]
+            elif l.startswith('S'):
+                tmp = l.split()
+                v_id = int(tmp[1])
+                VOs[v_id] = [int(e) for e in tmp[2::]]
 
             elif l.startswith('V'):
                 tmp = l.split()
-                c_id = int[tmp[1]]
-                v_id = int[tmp[2]]
+                c_id = int(tmp[1])
+                v_id = int(tmp[2])
                 V[c_id] = v_id
             elif l.startswith('C'):
                 tmp = l.split()
-                v_id = int[tmp[1]]
-                c_id = int[tmp[2]]
+                v_id = int(tmp[1])
+                c_id = int(tmp[2])
                 C[v_id] = c_id
             elif l.startswith('O'):
                 tmp = l.split()
-                c_id = int[tmp[1]]
-                c_o = int[tmp[2]]
+                c_id = int(tmp[1])
+                c_o = int(tmp[2])
                 O[c_id] = c_o
         
-        minv = min(vertices)
-        maxv = max(vertices)
+        try:
+            minv = min(vertices)
+            maxv = max(vertices)
+        except ValueError:
+            minv = min(V)
+            maxv = min(V)
+
         self.__vertices[(minv, maxv)] = vertices
         self.__L[(minv, maxv)] = L
         self.__R[(minv, maxv)] = R
+        self.__VOs[(minv, maxv)] = VOs
         self.__V[(minv, maxv)] = V
         self.__C[(minv, maxv)] = C
         self.__O[(minv, maxv)] = O
 
+        if minv == 0:
+            print self.__V
 
         self.queue.append((minv, maxv))
 
@@ -150,14 +169,22 @@ class ClusterManager(object):
         print "Loading Cluster", cl
         return self.load_cluster(cl)
 
+    def load_corner_cluster(self, c_id):
+        print ">>>", c_id
+        cl = self.index_corners_vertices[str(c_id)]
+        print "Loading Cluster", cl
+        return self.load_cluster(cl)
+
+
     def print_cluster_info(self):
         for k in sorted(self._n_load_clusters):
             print k, self._n_load_clusters[k], self._n_unload_clusters[k]
 
 
 class _DictGeomElem(object):
-    def __init__(self, clmrg, elems):
+    def __init__(self, clmrg, name, elems):
         self._elems = elems
+        self._name = name
         self._clmrg = clmrg
 
     def __getitem__(self, key):
@@ -165,12 +192,19 @@ class _DictGeomElem(object):
             if minv <= key <= maxv:
                 break
         else:
-            self._clmrg.load_vertex_cluster(key)
+            if self._name in ('V', 'O'):
+                self._clmrg.load_corner_cluster(key)
+            else:
+                self._clmrg.load_vertex_cluster(key)
             for minv, maxv in sorted(self._elems):
                 if minv <= key <= maxv:
                     break
             else:
                 return
+        #if minv == 0:
+            #print self._elems[(minv, maxv)]
+        if self._name in ('V', 'O'):
+            print self._elems[(minv, maxv)]
         return self._elems[(minv, maxv)][key]
 
     def __len__(self):
@@ -212,6 +246,10 @@ def create_clusters(lr, cluster_size):
         clusters[n].append(('L', lr.L[v_id][0], lr.L[v_id][1], lr.L[v_id][2]))
         clusters[n].append(('R', lr.R[v_id][0], lr.R[v_id][1], lr.R[v_id][2]))
 
+        if lr.L[v_id][2] or lr.R[v_id][2]:
+            print "S"
+            clusters[n].append(('S', v_id, lr.VOs[v_id][0], lr.VOs[v_id][1], lr.VOs[v_id][2], lr.VOs[v_id][3])) 
+
         v_id += 1
 
     n += 1
@@ -243,7 +281,9 @@ def save_clusters(lr, clusters, filename):
         # indexes
         index_vertices_file = os.path.splitext(filename)[0] + '_v.hdr'
         index_clusters_file = os.path.splitext(filename)[0] + '_c.hdr'
+        index_corner_vertices_file = os.path.splitext(filename)[0] + '_cv.hdr'
         index_vertices = bsddb.btopen(index_vertices_file)
+        index_corners_vertices = bsddb.btopen(index_corner_vertices_file)
         index_clusters = bsddb.btopen(index_clusters_file)
 
         cfile.write("edge vertex: %d\n" % lr.mr)
@@ -259,6 +299,9 @@ def save_clusters(lr, clusters, filename):
                     maxc = max(elem[1], maxc)
                     minc = min(elem[1], minc)
                     index_vertices[str(elem[1])] = str(i)
+                elif elem[0] == 'V':
+                    index_corners_vertices[str(elem[1])] = str(i)
+
                 cfile.write(" ".join([str(e) for e in elem]) + "\n")
             cluster_size = cfile.tell() - init_cluster
             index_clusters[str(i)] = "%d %d %d %d" % (init_cluster,
