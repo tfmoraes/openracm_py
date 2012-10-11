@@ -28,6 +28,7 @@ def  taubin_smooth(cllr, l, m, steps):
             D[i] = calculate_d(cllr, i)
 
         for i in xrange(cllr.m):
+            print "Step", s, "vertex", i
             p = np.array(cllr.vertices[i])
             pl = p + l*D[i]
             nx, ny, nz = pl
@@ -141,7 +142,7 @@ class ClusterManager(object):
             maxv = max(vertices)
         except ValueError:
             minv = min(V)
-            maxv = min(V)
+            maxv = max(V)
 
         self.__vertices[(minv, maxv)] = vertices
         self.__L[(minv, maxv)] = L
@@ -203,9 +204,15 @@ class _DictGeomElem(object):
                 return
         #if minv == 0:
             #print self._elems[(minv, maxv)]
-        if self._name in ('V', 'O'):
-            print self._elems[(minv, maxv)]
         return self._elems[(minv, maxv)][key]
+
+    def __setitem__(self, key, value):
+        for minv, maxv in sorted(self._elems):
+            if minv <= key <= maxv:
+                break
+
+        self._elems[(minv, maxv)][key] = value
+
 
     def __len__(self):
         return len(self._elems)

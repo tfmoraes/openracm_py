@@ -403,7 +403,7 @@ class LacedRing(object):
         """
         if c_id >= 8 * self.mr:
             i = int(c_id - math.floor(c_id / 4) - 6 * self.mr)
-            return self.V[i]
+            return self.V[c_id]
         else:
             v = int(math.floor(c_id / 8.0))
             if c_id % 8 in (0, 6):
@@ -897,7 +897,7 @@ class LacedRing(object):
             ring0.add(vp)
 
             c = self.swing(c)
-            print c, c_id
+            #print c, c_id
             if c == c_id:
                 break
         return ring0
