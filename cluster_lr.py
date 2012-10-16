@@ -2,6 +2,7 @@ import bsddb
 import os
 import sys
 
+import  bintrees
 import numpy as np
 
 import cy_corner_table
@@ -18,7 +19,6 @@ def calculate_d(cllr, vi):
         n += 1.0
 
     return t / n
-        
     
 
 def  taubin_smooth(cllr, l, m, steps):
@@ -34,6 +34,7 @@ def  taubin_smooth(cllr, l, m, steps):
             nx, ny, nz = pl
             cllr.vertices[i] = nx, ny, nz
 
+
 class ClusterManager(object):
     def __init__(self, filename, qsize):
         self.filename = filename
@@ -47,7 +48,7 @@ class ClusterManager(object):
         self.cfile = open(filename)
         self.load_header()
 
-        self.queue = []
+        self.cl_usage = {}
         self.queue_size = qsize
 
         self._n_load_clusters = {}
@@ -79,9 +80,10 @@ class ClusterManager(object):
         self.cfile.seek(init_cluster)
         str_cluster = self.cfile.read(cluster_size)
 
-        if len(self.queue) == self.queue_size:
+        if len(self.cl_usage) == self.queue_size:
             print "The queue is full"
-            k = self.queue.pop(0)
+            k = max(self.cl_usage, key=lambda x: x[1])[0]
+            del self.cl_usage[k]
             del self.__vertices[k]
             del self.__L[k]
             del self.__R[k]
@@ -155,14 +157,11 @@ class ClusterManager(object):
         if minv == 0:
             print self.__V
 
-        self.queue.append((minv, maxv))
-
         try:
             self._n_load_clusters[(minv, maxv)] += 1
         except KeyError:
             self._n_load_clusters[(minv, maxv)] = 1
             self._n_unload_clusters[(minv, maxv)] = 0
-        
 
     def load_vertex_cluster(self, v_id):
         print ">>>", v_id
@@ -176,10 +175,18 @@ class ClusterManager(object):
         print "Loading Cluster", cl
         return self.load_cluster(cl)
 
-
     def print_cluster_info(self):
         for k in sorted(self._n_load_clusters):
             print k, self._n_load_clusters[k], self._n_unload_clusters[k]
+
+        print self.cl_usage
+
+
+    def update_cluster_usage(self, cl_key):
+        try:
+            self.cl_usage[cl_key] += 1
+        except KeyError:
+            self.cl_usage[cl_key] = 1
 
 
 class _DictGeomElem(object):
@@ -204,6 +211,7 @@ class _DictGeomElem(object):
                 return
         #if minv == 0:
             #print self._elems[(minv, maxv)]
+        self._clmrg.update_cluster_usage((minv, maxv))
         return self._elems[(minv, maxv)][key]
 
     def __setitem__(self, key, value):
@@ -212,10 +220,11 @@ class _DictGeomElem(object):
                 break
 
         self._elems[(minv, maxv)][key] = value
-
+        self._clmrg.update_cluster_usage((minv, maxv))
 
     def __len__(self):
         return len(self._elems)
+
 
 class ClusteredLacedRing(laced_ring.LacedRing):
     def __init__(self, clmrg):
