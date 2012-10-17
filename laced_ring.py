@@ -402,8 +402,11 @@ class LacedRing(object):
         Return the vertex `v' related to the given corner `c_id'.
         """
         if c_id >= 8 * self.mr:
-            i = int(c_id - math.floor(c_id / 4) - 6 * self.mr)
-            return self.V[c_id]
+            if isinstance(self.V, list):
+                i = int(c_id - math.floor(c_id / 4) - 6 * self.mr)
+                return self.V[i]
+            else:
+                return self.V[c_id]
         else:
             v = int(math.floor(c_id / 8.0))
             if c_id % 8 in (0, 6):
