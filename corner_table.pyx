@@ -142,13 +142,12 @@ cdef class CornerTable:
             degree += 1
         return degree
 
-    cpdef int get_triangle_by_edge(self, int v0, int v1):
+    cpdef tuple get_triangle_by_edge(self, int v0, int v1):
         cdef int c0, c1
         c0 = self.get_corner_v(v0)
         c1 = self.get_corner_v(v1)
 
-        while v1 not in (self.get_vertex(self.next_corner(c0)),
-                         self.get_vertex(self.previous_corner(c0))):
+        while v1 != self.get_vertex(self.next_corner(c0)):
             c0 = self.swing(c0)
 
-        return self.get_triangle(c0)
+        return self.get_triangle(c0), c0

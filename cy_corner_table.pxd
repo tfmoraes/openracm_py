@@ -43,4 +43,4 @@ cdef class CornerTable:
 
     cpdef int get_vertex_degree(self, v_id)
 
-    cpdef int get_triangle_by_edge(self, int v0, int v1)
+    cpdef tuple get_triangle_by_edge(self, int v0, int v1)
