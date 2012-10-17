@@ -42,3 +42,5 @@ cdef class CornerTable:
     cpdef list get_faces_connected_to_v(self, Py_ssize_t v_id)
 
     cpdef int get_vertex_degree(self, v_id)
+
+    cpdef int get_triangle_by_edge(self, int v0, int v1)
