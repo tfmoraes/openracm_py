@@ -150,4 +150,5 @@ cdef class CornerTable:
         while v1 != self.get_vertex(self.next_corner(c0)):
             c0 = self.swing(c0)
 
-        return self.get_triangle(c0), c0
+        c1 = self.next_corner(c0)
+        return self.get_triangle(c0), c0, c1
