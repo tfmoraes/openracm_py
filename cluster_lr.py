@@ -1,8 +1,8 @@
 import bsddb
 import os
+import signal
 import sys
 
-import  bintrees
 import numpy as np
 
 import cy_corner_table
@@ -50,6 +50,7 @@ class ClusterManager(object):
 
         self.cl_usage = {}
         self.queue_size = qsize
+        self.timestamp = 0
 
         self._n_load_clusters = {}
         self._n_unload_clusters = {}
@@ -70,6 +71,8 @@ class ClusterManager(object):
         self.C = _DictGeomElem(self, 'C', self.__C)
         self.VOs = _DictGeomElem(self, 'VOs', self.__VOs)
 
+        signal.signal(signal.SIGINT , lambda x, y: self.print_cluster_info())
+
     def load_header(self):
         self.mr = int(self.cfile.readline().split(':')[1].strip())
         self.m = int(self.cfile.readline().split(':')[1].strip())
@@ -80,9 +83,10 @@ class ClusterManager(object):
         self.cfile.seek(init_cluster)
         str_cluster = self.cfile.read(cluster_size)
 
+
         if len(self.cl_usage) == self.queue_size:
             print "The queue is full"
-            k = max(self.cl_usage, key=lambda x: x[1])[0]
+            k = max(self.cl_usage, key=lambda x: self.cl_usage[x]['timestamp'])
             del self.cl_usage[k]
             del self.__vertices[k]
             del self.__L[k]
@@ -146,6 +150,11 @@ class ClusterManager(object):
             minv = min(V)
             maxv = max(V)
 
+        if minv == maxv:
+            minv = min(V)
+            maxv = max(V)
+
+
         self.__vertices[(minv, maxv)] = vertices
         self.__L[(minv, maxv)] = L
         self.__R[(minv, maxv)] = R
@@ -153,9 +162,6 @@ class ClusterManager(object):
         self.__V[(minv, maxv)] = V
         self.__C[(minv, maxv)] = C
         self.__O[(minv, maxv)] = O
-
-        if minv == 0:
-            print self.__V
 
         try:
             self._n_load_clusters[(minv, maxv)] += 1
@@ -176,17 +182,23 @@ class ClusterManager(object):
         return self.load_cluster(cl)
 
     def print_cluster_info(self):
+        print "============================================================"
         for k in sorted(self._n_load_clusters):
             print k, self._n_load_clusters[k], self._n_unload_clusters[k]
 
+        print "============================================================"
         print self.cl_usage
+        sys.exit()
 
 
     def update_cluster_usage(self, cl_key):
+        self.timestamp += 1
         try:
-            self.cl_usage[cl_key] += 1
+            self.cl_usage[cl_key]['timestamp'] = self.timestamp
+            self.cl_usage[cl_key]['access'] += 1
         except KeyError:
-            self.cl_usage[cl_key] = 1
+            self.cl_usage[cl_key] = {'timestamp': self.timestamp,
+                                     'access': 1}
 
 
 class _DictGeomElem(object):
