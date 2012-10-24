@@ -832,7 +832,12 @@ class LacedRing(object):
 
             o = -1, -1
 
-        t_o = self.triangle(o[0])
+        try:
+            t_o = self.triangle(o[0])
+        except:
+            print o, c_id
+            sys.exit()
+
         if t_o == -1:
             print v, c_id, self.vertex(c_id), t, t_o, o, self.R[v], self.L[v]
         if self.is_t2_triangle(t_o):
@@ -890,7 +895,7 @@ class LacedRing(object):
         Returns a corner related to the given vertex `v_id'.
         """
         if v_id >= self.mr:
-            return self.C[v - self.mr]
+            return self.C[v_id - self.mr]
         elif self.L[v_id] == self.next_vertex_ring(self.next_vertex_ring(v_id)):
             return 8 * self.next_vertex_ring(v_id) + 1
         elif self.R[v_id] == self.next_vertex_ring(self.next_vertex_ring(v_id)):
