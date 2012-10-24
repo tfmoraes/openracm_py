@@ -26,6 +26,7 @@ def  taubin_smooth(cllr, l, m, steps):
         D = {}
         for i in xrange(cllr.m):
             D[i] = calculate_d(cllr, i)
+            print "step", s, "vertex", i
 
         for i in xrange(cllr.m):
             print "Step", s, "vertex", i
@@ -85,8 +86,8 @@ class ClusterManager(object):
 
 
         if len(self.cl_usage) == self.queue_size:
-            print "The queue is full"
-            k = max(self.cl_usage, key=lambda x: self.cl_usage[x]['timestamp'])
+            #print "The queue is full"
+            k = min(self.cl_usage, key=lambda x: self.cl_usage[x]['timestamp'])
             del self.cl_usage[k]
             del self.__vertices[k]
             del self.__L[k]
@@ -143,42 +144,42 @@ class ClusterManager(object):
                 c_o = int(tmp[2])
                 O[c_id] = c_o
         
+        #try:
+            #minv = min(vertices)
+            #maxv = max(vertices)
+        #except ValueError:
+            #minv = min(V)
+            #maxv = max(V)
+
+        #if minv == maxv:
+            #minv = min(V)
+            #maxv = max(V)
+
+
+        self.__vertices[cl] = vertices
+        self.__L[cl] = L
+        self.__R[cl] = R
+        self.__VOs[cl] = VOs
+        self.__V[cl] = V
+        self.__C[cl] = C
+        self.__O[cl] = O
+
         try:
-            minv = min(vertices)
-            maxv = max(vertices)
-        except ValueError:
-            minv = min(V)
-            maxv = max(V)
-
-        if minv == maxv:
-            minv = min(V)
-            maxv = max(V)
-
-
-        self.__vertices[(minv, maxv)] = vertices
-        self.__L[(minv, maxv)] = L
-        self.__R[(minv, maxv)] = R
-        self.__VOs[(minv, maxv)] = VOs
-        self.__V[(minv, maxv)] = V
-        self.__C[(minv, maxv)] = C
-        self.__O[(minv, maxv)] = O
-
-        try:
-            self._n_load_clusters[(minv, maxv)] += 1
+            self._n_load_clusters[cl] += 1
         except KeyError:
-            self._n_load_clusters[(minv, maxv)] = 1
-            self._n_unload_clusters[(minv, maxv)] = 0
+            self._n_load_clusters[cl] = 1
+            self._n_unload_clusters[cl] = 0
 
     def load_vertex_cluster(self, v_id):
-        print ">>>", v_id
+        #print ">>>", v_id
         cl = self.index_vertices[str(v_id)]
-        print "Loading Cluster", cl
+        #print "Loading Cluster", cl
         return self.load_cluster(cl)
 
     def load_corner_cluster(self, c_id):
-        print ">>>", c_id
+        #print ">>>", c_id
         cl = self.index_corners_vertices[str(c_id)]
-        print "Loading Cluster", cl
+        #print "Loading Cluster", cl
         return self.load_cluster(cl)
 
     def print_cluster_info(self):
@@ -208,31 +209,36 @@ class _DictGeomElem(object):
         self._clmrg = clmrg
 
     def __getitem__(self, key):
-        for minv, maxv in sorted(self._elems):
-            if minv <= key <= maxv:
-                break
-        else:
-            if self._name in ('V', 'O'):
+        if self._name in ('V', 'O', 'C'):
+            try:
+                cl = self._clmrg.index_corners_vertices[str(key)]
+                e = self._elems[cl][key]
+            except KeyError:
                 self._clmrg.load_corner_cluster(key)
-            else:
+                cl = self._clmrg.index_corners_vertices[str(key)]
+                e = self._elems[cl][key]
+        else:
+            try:
+                cl = self._clmrg.index_vertices[str(key)]
+                e = self._elems[cl][key]
+            except KeyError:
                 self._clmrg.load_vertex_cluster(key)
-            for minv, maxv in sorted(self._elems):
-                if minv <= key <= maxv:
-                    break
-            else:
-                return
-        #if minv == 0:
-            #print self._elems[(minv, maxv)]
-        self._clmrg.update_cluster_usage((minv, maxv))
-        return self._elems[(minv, maxv)][key]
+                cl = self._clmrg.index_vertices[str(key)]
+                e = self._elems[cl][key]
+
+        self._clmrg.update_cluster_usage(cl)
+        return e
 
     def __setitem__(self, key, value):
-        for minv, maxv in sorted(self._elems):
-            if minv <= key <= maxv:
-                break
+        try:
+            cl = self._clmrg.index_vertices[str(key)]
+            self._elems[cl][key] = value
+        except KeyError:
+            self._clmrg.load_vertex_cluster(key)
+            cl = self._clmrg.index_vertices[str(key)]
+            self._elems[cl][key] = value
 
-        self._elems[(minv, maxv)][key] = value
-        self._clmrg.update_cluster_usage((minv, maxv))
+        self._clmrg.update_cluster_usage(cl)
 
     def __len__(self):
         return len(self._elems)
