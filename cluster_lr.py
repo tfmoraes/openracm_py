@@ -40,10 +40,12 @@ class ClusterManager(object):
     def __init__(self, filename, qsize):
         self.filename = filename
         index_vertices_file = os.path.splitext(filename)[0] + '_v.hdr'
-        index_corner_vertices_file = os.path.splitext(filename)[0] + '_cv.hdr'
-        index_clusters_file = os.path.splitext(filename)[0] + '_c.hdr'
+        index_corner_file = os.path.splitext(filename)[0] + '_c.hdr'
+        index_corner_vertice_file = os.path.splitext(filename)[0] + '_cv.hdr'
+        index_clusters_file = os.path.splitext(filename)[0] + '_cl.hdr'
         self.index_vertices = bsddb.btopen(index_vertices_file)
-        self.index_corners_vertices = bsddb.btopen(index_corner_vertices_file)
+        self.index_corners = bsddb.btopen(index_corner_file)
+        self.index_corner_vertice = bsddb.btopen(index_corner_vertice_file)
         self.index_clusters = bsddb.btopen(index_clusters_file)
 
         self.cfile = open(filename)
@@ -178,7 +180,13 @@ class ClusterManager(object):
 
     def load_corner_cluster(self, c_id):
         #print ">>>", c_id
-        cl = self.index_corners_vertices[str(c_id)]
+        cl = self.index_corners[str(c_id)]
+        #print "Loading Cluster", cl
+        return self.load_cluster(cl)
+
+    def load_corner_vertice_cluster(self, v_id):
+        #print ">>>", c_id
+        cl = self.index_corner_vertice[str(v_id)]
         #print "Loading Cluster", cl
         return self.load_cluster(cl)
 
@@ -209,13 +217,21 @@ class _DictGeomElem(object):
         self._clmrg = clmrg
 
     def __getitem__(self, key):
-        if self._name in ('V', 'O', 'C'):
+        if self._name in ('V', 'O'):
             try:
-                cl = self._clmrg.index_corners_vertices[str(key)]
+                cl = self._clmrg.index_corners[str(key)]
                 e = self._elems[cl][key]
             except KeyError:
                 self._clmrg.load_corner_cluster(key)
-                cl = self._clmrg.index_corners_vertices[str(key)]
+                cl = self._clmrg.index_corners[str(key)]
+                e = self._elems[cl][key]
+        elif self._name == 'C':
+            try:
+                cl = self._clmrg.index_corner_vertice[str(key)]
+                e = self._elems[cl][key]
+            except KeyError:
+                self._clmrg.load_corner_vertice_cluster(key)
+                cl = self._clmrg.index_corner_vertice[str(key)]
                 e = self._elems[cl][key]
         else:
             try:
@@ -314,10 +330,12 @@ def save_clusters(lr, clusters, filename):
     with file(filename, 'w') as cfile:
         # indexes
         index_vertices_file = os.path.splitext(filename)[0] + '_v.hdr'
-        index_clusters_file = os.path.splitext(filename)[0] + '_c.hdr'
-        index_corner_vertices_file = os.path.splitext(filename)[0] + '_cv.hdr'
+        index_clusters_file = os.path.splitext(filename)[0] + '_cl.hdr'
+        index_corner_file = os.path.splitext(filename)[0] + '_c.hdr'
+        index_corner_vertice_file = os.path.splitext(filename)[0] + '_cv.hdr'
         index_vertices = bsddb.btopen(index_vertices_file)
-        index_corners_vertices = bsddb.btopen(index_corner_vertices_file)
+        index_corners = bsddb.btopen(index_corner_file)
+        index_corner_vertice = bsddb.btopen(index_corner_vertice_file)
         index_clusters = bsddb.btopen(index_clusters_file)
 
         cfile.write("edge vertex: %d\n" % lr.mr)
@@ -334,7 +352,10 @@ def save_clusters(lr, clusters, filename):
                     minc = min(elem[1], minc)
                     index_vertices[str(elem[1])] = str(i)
                 elif elem[0] == 'V':
-                    index_corners_vertices[str(elem[1])] = str(i)
+                    index_corners[str(elem[1])] = str(i)
+                elif elem[0] == 'C':
+                    index_corner_vertice[str(elem[1])] = str(i)
+
 
                 cfile.write(" ".join([str(e) for e in elem]) + "\n")
             cluster_size = cfile.tell() - init_cluster
