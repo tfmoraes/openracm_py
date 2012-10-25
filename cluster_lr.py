@@ -218,28 +218,25 @@ class _DictGeomElem(object):
 
     def __getitem__(self, key):
         if self._name in ('V', 'O'):
+            cl = self._clmrg.index_corners[str(key)]
             try:
-                cl = self._clmrg.index_corners[str(key)]
                 e = self._elems[cl][key]
             except KeyError:
                 self._clmrg.load_corner_cluster(key)
-                cl = self._clmrg.index_corners[str(key)]
                 e = self._elems[cl][key]
         elif self._name == 'C':
+            cl = self._clmrg.index_corner_vertice[str(key)]
             try:
-                cl = self._clmrg.index_corner_vertice[str(key)]
                 e = self._elems[cl][key]
             except KeyError:
                 self._clmrg.load_corner_vertice_cluster(key)
-                cl = self._clmrg.index_corner_vertice[str(key)]
                 e = self._elems[cl][key]
         else:
+            cl = self._clmrg.index_vertices[str(key)]
             try:
-                cl = self._clmrg.index_vertices[str(key)]
                 e = self._elems[cl][key]
             except KeyError:
                 self._clmrg.load_vertex_cluster(key)
-                cl = self._clmrg.index_vertices[str(key)]
                 e = self._elems[cl][key]
 
         self._clmrg.update_cluster_usage(cl)
