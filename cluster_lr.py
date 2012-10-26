@@ -1,8 +1,8 @@
 import bsddb
 import os
+import signal
 import sys
 
-import  bintrees
 import numpy as np
 
 import cy_corner_table
@@ -26,6 +26,7 @@ def  taubin_smooth(cllr, l, m, steps):
         D = {}
         for i in xrange(cllr.m):
             D[i] = calculate_d(cllr, i)
+            print "step", s, "vertex", i
 
         for i in xrange(cllr.m):
             print "Step", s, "vertex", i
@@ -39,10 +40,12 @@ class ClusterManager(object):
     def __init__(self, filename, qsize):
         self.filename = filename
         index_vertices_file = os.path.splitext(filename)[0] + '_v.hdr'
-        index_corner_vertices_file = os.path.splitext(filename)[0] + '_cv.hdr'
-        index_clusters_file = os.path.splitext(filename)[0] + '_c.hdr'
+        index_corner_file = os.path.splitext(filename)[0] + '_c.hdr'
+        index_corner_vertice_file = os.path.splitext(filename)[0] + '_cv.hdr'
+        index_clusters_file = os.path.splitext(filename)[0] + '_cl.hdr'
         self.index_vertices = bsddb.btopen(index_vertices_file)
-        self.index_corners_vertices = bsddb.btopen(index_corner_vertices_file)
+        self.index_corners = bsddb.btopen(index_corner_file)
+        self.index_corner_vertice = bsddb.btopen(index_corner_vertice_file)
         self.index_clusters = bsddb.btopen(index_clusters_file)
 
         self.cfile = open(filename)
@@ -50,6 +53,7 @@ class ClusterManager(object):
 
         self.cl_usage = {}
         self.queue_size = qsize
+        self.timestamp = 0
 
         self._n_load_clusters = {}
         self._n_unload_clusters = {}
@@ -70,6 +74,8 @@ class ClusterManager(object):
         self.C = _DictGeomElem(self, 'C', self.__C)
         self.VOs = _DictGeomElem(self, 'VOs', self.__VOs)
 
+        signal.signal(signal.SIGINT , lambda x, y: self.print_cluster_info())
+
     def load_header(self):
         self.mr = int(self.cfile.readline().split(':')[1].strip())
         self.m = int(self.cfile.readline().split(':')[1].strip())
@@ -80,9 +86,10 @@ class ClusterManager(object):
         self.cfile.seek(init_cluster)
         str_cluster = self.cfile.read(cluster_size)
 
+
         if len(self.cl_usage) == self.queue_size:
-            print "The queue is full"
-            k = max(self.cl_usage, key=lambda x: x[1])[0]
+            #print "The queue is full"
+            k = min(self.cl_usage, key=lambda x: self.cl_usage[x]['timestamp'])
             del self.cl_usage[k]
             del self.__vertices[k]
             del self.__L[k]
@@ -139,54 +146,68 @@ class ClusterManager(object):
                 c_o = int(tmp[2])
                 O[c_id] = c_o
         
+        #try:
+            #minv = min(vertices)
+            #maxv = max(vertices)
+        #except ValueError:
+            #minv = min(V)
+            #maxv = max(V)
+
+        #if minv == maxv:
+            #minv = min(V)
+            #maxv = max(V)
+
+
+        self.__vertices[cl] = vertices
+        self.__L[cl] = L
+        self.__R[cl] = R
+        self.__VOs[cl] = VOs
+        self.__V[cl] = V
+        self.__C[cl] = C
+        self.__O[cl] = O
+
         try:
-            minv = min(vertices)
-            maxv = max(vertices)
-        except ValueError:
-            minv = min(V)
-            maxv = max(V)
-
-        self.__vertices[(minv, maxv)] = vertices
-        self.__L[(minv, maxv)] = L
-        self.__R[(minv, maxv)] = R
-        self.__VOs[(minv, maxv)] = VOs
-        self.__V[(minv, maxv)] = V
-        self.__C[(minv, maxv)] = C
-        self.__O[(minv, maxv)] = O
-
-        if minv == 0:
-            print self.__V
-
-        try:
-            self._n_load_clusters[(minv, maxv)] += 1
+            self._n_load_clusters[cl] += 1
         except KeyError:
-            self._n_load_clusters[(minv, maxv)] = 1
-            self._n_unload_clusters[(minv, maxv)] = 0
+            self._n_load_clusters[cl] = 1
+            self._n_unload_clusters[cl] = 0
 
     def load_vertex_cluster(self, v_id):
-        print ">>>", v_id
+        #print ">>>", v_id
         cl = self.index_vertices[str(v_id)]
-        print "Loading Cluster", cl
+        #print "Loading Cluster", cl
         return self.load_cluster(cl)
 
     def load_corner_cluster(self, c_id):
-        print ">>>", c_id
-        cl = self.index_corners_vertices[str(c_id)]
-        print "Loading Cluster", cl
+        #print ">>>", c_id
+        cl = self.index_corners[str(c_id)]
+        #print "Loading Cluster", cl
+        return self.load_cluster(cl)
+
+    def load_corner_vertice_cluster(self, v_id):
+        #print ">>>", c_id
+        cl = self.index_corner_vertice[str(v_id)]
+        #print "Loading Cluster", cl
         return self.load_cluster(cl)
 
     def print_cluster_info(self):
+        print "============================================================"
         for k in sorted(self._n_load_clusters):
             print k, self._n_load_clusters[k], self._n_unload_clusters[k]
 
+        print "============================================================"
         print self.cl_usage
+        sys.exit()
 
 
     def update_cluster_usage(self, cl_key):
+        self.timestamp += 1
         try:
-            self.cl_usage[cl_key] += 1
+            self.cl_usage[cl_key]['timestamp'] = self.timestamp
+            self.cl_usage[cl_key]['access'] += 1
         except KeyError:
-            self.cl_usage[cl_key] = 1
+            self.cl_usage[cl_key] = {'timestamp': self.timestamp,
+                                     'access': 1}
 
 
 class _DictGeomElem(object):
@@ -196,31 +217,41 @@ class _DictGeomElem(object):
         self._clmrg = clmrg
 
     def __getitem__(self, key):
-        for minv, maxv in sorted(self._elems):
-            if minv <= key <= maxv:
-                break
-        else:
-            if self._name in ('V', 'O'):
+        if self._name in ('V', 'O'):
+            cl = self._clmrg.index_corners[str(key)]
+            try:
+                e = self._elems[cl][key]
+            except KeyError:
                 self._clmrg.load_corner_cluster(key)
-            else:
+                e = self._elems[cl][key]
+        elif self._name == 'C':
+            cl = self._clmrg.index_corner_vertice[str(key)]
+            try:
+                e = self._elems[cl][key]
+            except KeyError:
+                self._clmrg.load_corner_vertice_cluster(key)
+                e = self._elems[cl][key]
+        else:
+            cl = self._clmrg.index_vertices[str(key)]
+            try:
+                e = self._elems[cl][key]
+            except KeyError:
                 self._clmrg.load_vertex_cluster(key)
-            for minv, maxv in sorted(self._elems):
-                if minv <= key <= maxv:
-                    break
-            else:
-                return
-        #if minv == 0:
-            #print self._elems[(minv, maxv)]
-        self._clmrg.update_cluster_usage((minv, maxv))
-        return self._elems[(minv, maxv)][key]
+                e = self._elems[cl][key]
+
+        self._clmrg.update_cluster_usage(cl)
+        return e
 
     def __setitem__(self, key, value):
-        for minv, maxv in sorted(self._elems):
-            if minv <= key <= maxv:
-                break
+        try:
+            cl = self._clmrg.index_vertices[str(key)]
+            self._elems[cl][key] = value
+        except KeyError:
+            self._clmrg.load_vertex_cluster(key)
+            cl = self._clmrg.index_vertices[str(key)]
+            self._elems[cl][key] = value
 
-        self._elems[(minv, maxv)][key] = value
-        self._clmrg.update_cluster_usage((minv, maxv))
+        self._clmrg.update_cluster_usage(cl)
 
     def __len__(self):
         return len(self._elems)
@@ -296,10 +327,12 @@ def save_clusters(lr, clusters, filename):
     with file(filename, 'w') as cfile:
         # indexes
         index_vertices_file = os.path.splitext(filename)[0] + '_v.hdr'
-        index_clusters_file = os.path.splitext(filename)[0] + '_c.hdr'
-        index_corner_vertices_file = os.path.splitext(filename)[0] + '_cv.hdr'
+        index_clusters_file = os.path.splitext(filename)[0] + '_cl.hdr'
+        index_corner_file = os.path.splitext(filename)[0] + '_c.hdr'
+        index_corner_vertice_file = os.path.splitext(filename)[0] + '_cv.hdr'
         index_vertices = bsddb.btopen(index_vertices_file)
-        index_corners_vertices = bsddb.btopen(index_corner_vertices_file)
+        index_corners = bsddb.btopen(index_corner_file)
+        index_corner_vertice = bsddb.btopen(index_corner_vertice_file)
         index_clusters = bsddb.btopen(index_clusters_file)
 
         cfile.write("edge vertex: %d\n" % lr.mr)
@@ -316,7 +349,10 @@ def save_clusters(lr, clusters, filename):
                     minc = min(elem[1], minc)
                     index_vertices[str(elem[1])] = str(i)
                 elif elem[0] == 'V':
-                    index_corners_vertices[str(elem[1])] = str(i)
+                    index_corners[str(elem[1])] = str(i)
+                elif elem[0] == 'C':
+                    index_corner_vertice[str(elem[1])] = str(i)
+
 
                 cfile.write(" ".join([str(e) for e in elem]) + "\n")
             cluster_size = cfile.tell() - init_cluster
