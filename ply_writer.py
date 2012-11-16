@@ -35,6 +35,20 @@ class PlyWriter(object):
                 cp = ct.previous_corner(c_id)
                 ply_file.write('3 %d %d %d\n' % (ct.V[c_id], ct.V[cn], ct.V[cp]))
 
+    def from_laced_ring(self, lr):
+        with file(self.filename, 'w') as ply_file:
+            self._write_header(ply_file, lr.m,  lr.number_triangles)
+            for v in xrange(lr.m):
+                ply_file.write(' '.join(['%f' % i for i in lr.vertices[v]]) + '\n')
+
+            for t_id in xrange(lr.number_triangles):
+                c, cn, cp = lr.get_corners_triangle(t_id)
+                v = lr.vertex(c)
+                vn = lr.vertex(cn)
+                vp = lr.vertex(cp)
+                ply_file.write('3 %d %d %d\n' % (v, vn, vp))
+
+
     def from_faces_vertices_list(self, faces, vertices, colours=None):
         with file(self.filename, 'w') as ply_file:
             self._write_header(ply_file, len(vertices), len(faces),
