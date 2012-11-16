@@ -8,6 +8,7 @@ import numpy as np
 import cy_corner_table
 import laced_ring
 import ply_reader
+import ply_writer
 
 def calculate_d(cllr, vi):
     t = 0
@@ -402,6 +403,17 @@ def main():
 
         taubin_smooth(cl_lr, 0.5, -0.53, 3)
 
+
+        if "-d" in sys.argv:
+            clmrg.print_cluster_info()
+
+
+    elif sys.argv[1] == '-p':
+        clmrg = ClusterManager(sys.argv[2], int(sys.argv[3]))
+        cl_lr = ClusteredLacedRing(clmrg)
+        
+        writer = ply_writer.PlyWriter(sys.argv[4])
+        writer.from_laced_ring(cl_lr)
 
         if "-d" in sys.argv:
             clmrg.print_cluster_info()
