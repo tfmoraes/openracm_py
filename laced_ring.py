@@ -985,7 +985,9 @@ class LacedRing(object):
                 break
         return ring0
             
-
+    def get_corners_triangle(self, t_id):
+        corner = self.corner_triangle(t_id)
+        return corner, self.next_corner(corner), self.previous_corner(corner)
 
     def is_t2_triangle(self, t_id):
         if t_id >= 2*self.mr:
