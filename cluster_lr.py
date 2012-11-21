@@ -318,10 +318,20 @@ def create_clusters(lr, cluster_size):
     n += 1
     clusters.append([])
     for v_id in xrange(lr.mr, lr.m):
+        if len(clusters[n]) == 1000:
+            clusters.append([])
+            n += 1
         clusters[n].append(('v', v_id, lr.vertices[v_id][0], lr.vertices[v_id][1], lr.vertices[v_id][2]))
 
     print lr.mr, lr.m, lr.number_triangles, len(lr.vertices)
+    i = 0
     for t in xrange(lr.mr * 2, lr.number_triangles):
+
+        if i == 200:
+            clusters.append([])
+            n += 1
+            i = 0
+
         c0 = lr.corner_triangle(t)
         c1 = lr.next_corner(c0)
         c2 = lr.previous_corner(c0)
@@ -336,6 +346,8 @@ def create_clusters(lr, cluster_size):
         clusters[n].append(('V', c2, lr.vertex(c2)))
         clusters[n].append(('C', lr.vertex(c2), c2))
         clusters[n].append(('O', c2, lr.oposite(c2)[0]))
+
+        i += 1
 
     return clusters
 
