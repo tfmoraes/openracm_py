@@ -1,3 +1,4 @@
+import bisect
 import bsddb
 import os
 import signal
@@ -49,6 +50,10 @@ class ClusterManager(object):
         self.index_corner_vertice = bsddb.btopen(index_corner_vertice_file)
         self.index_clusters = bsddb.btopen(index_clusters_file)
 
+        self.iv_keys = sorted([int(i) + 1 for i in self.index_vertices.keys()])
+        self.ic_keys = sorted([int(i) + 1 for i in self.index_corners.keys()])
+        self.icv_keys = sorted([int(i) + 1 for i in self.index_corner_vertice.keys()])
+
         self.cfile = open(filename)
         self.load_header()
 
@@ -86,7 +91,8 @@ class ClusterManager(object):
         init_cluster, cluster_size, iface, eface = [int(i) for i in self.index_clusters[cl].split()]
         self.cfile.seek(init_cluster)
         str_cluster = self.cfile.read(cluster_size)
-
+    
+        print len(self.cl_usage)
 
         if len(self.cl_usage) == self.queue_size:
             #print "The queue is full"
@@ -218,38 +224,47 @@ class _DictGeomElem(object):
         self._clmrg = clmrg
 
     def __getitem__(self, key):
+        key = int(key)
         if self._name in ('V', 'O'):
-            cl = self._clmrg.index_corners[str(key)]
+            idx = bisect.bisect(self._clmrg.ic_keys, key)
+            cl = self._clmrg.index_corners[str(self._clmrg.ic_keys[idx] - 1)]
             try:
                 e = self._elems[cl][key]
             except KeyError:
-                self._clmrg.load_corner_cluster(key)
+                self._clmrg.load_cluster(cl)
                 e = self._elems[cl][key]
         elif self._name == 'C':
-            cl = self._clmrg.index_corner_vertice[str(key)]
+            idx = bisect.bisect(self._clmrg.icv_keys, key)
+            cl = self._clmrg.index_corner_vertice[str(self._clmrg.icv_keys[idx] - 1)]
             try:
                 e = self._elems[cl][key]
             except KeyError:
-                self._clmrg.load_corner_vertice_cluster(key)
+                self._clmrg.load_cluster(cl)
                 e = self._elems[cl][key]
         else:
-            cl = self._clmrg.index_vertices[str(key)]
+            idx = bisect.bisect(self._clmrg.iv_keys, key)
+            cl = self._clmrg.index_vertices[str(self._clmrg.iv_keys[idx] - 1)]
             try:
                 e = self._elems[cl][key]
             except KeyError:
-                self._clmrg.load_vertex_cluster(key)
-                e = self._elems[cl][key]
+                self._clmrg.load_cluster(cl)
+                try:
+                    e = self._elems[cl][key]
+                except KeyError:
+                    print cl, key
+                    print self._clmrg.iv_keys
+                    sys.exit()
 
         self._clmrg.update_cluster_usage(cl)
         return e
 
     def __setitem__(self, key, value):
         try:
-            cl = self._clmrg.index_vertices[str(key)]
+            idx = bisect.bisect(self._clmrg.iv_keys, key)
+            cl = self._clmrg.index_vertices[str(self._clmrg.iv_keys[idx] - 1)]
             self._elems[cl][key] = value
         except KeyError:
-            self._clmrg.load_vertex_cluster(key)
-            cl = self._clmrg.index_vertices[str(key)]
+            self._clmrg.load_cluster(cl)
             self._elems[cl][key] = value
 
         self._clmrg.update_cluster_usage(cl)
@@ -343,24 +358,38 @@ def save_clusters(lr, clusters, filename):
         for i, cluster in enumerate(clusters):
             #cfile.write("Cluster %d\n" % i)
             init_cluster = cfile.tell()
-            minc, maxc = 2**32, 0
+            
+            minv, maxv = 2**32, -1
+            minc, maxc = 2**32, -1
+            mincv, maxcv = 2**32, -1
+
             for elem in cluster:
                 if elem[0] == 'v':
+                    maxv = max(elem[1], maxv)
+                    minv = min(elem[1], minv)
+                elif elem[0] == 'V':
                     maxc = max(elem[1], maxc)
                     minc = min(elem[1], minc)
-                    index_vertices[str(elem[1])] = str(i)
-                elif elem[0] == 'V':
-                    index_corners[str(elem[1])] = str(i)
                 elif elem[0] == 'C':
-                    index_corner_vertice[str(elem[1])] = str(i)
-
+                    maxcv = max(elem[1], maxcv)
+                    mincv = min(elem[1], mincv)
 
                 cfile.write(" ".join([str(e) for e in elem]) + "\n")
             cluster_size = cfile.tell() - init_cluster
+
+            if maxv > -1:
+                index_vertices[str(maxv)] = str(i)
+                
+            if maxc > -1:
+                index_corners[str(maxc)] = str(i)
+
+            if maxcv > -1:
+                index_corner_vertice[str(maxcv)] = str(i)
+
             index_clusters[str(i)] = "%d %d %d %d" % (init_cluster,
                                                              cluster_size,
-                                                             minc,
-                                                             maxc)
+                                                             minv,
+                                                             maxv)
        
 
 def main():

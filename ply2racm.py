@@ -129,21 +129,21 @@ def ply2racm(ply_filename, racm_filename, buffer_size, algorithm, cluster_size=2
         writer.from_faces_vertices_list(foutput, vertices)
 
     #vertices_faces = make_vertex_faces(vertices, [faces[f] for f in sorted(faces)])
-    vertices_faces = make_vertex_faces(vertices, foutput)
-    ct = cy_corner_table.CornerTable()
-    ct.create_corner_from_vertex_face(vertices, foutput,  vertices_faces)
-    #ct.create_corner_from_vertex_face(vertices, [faces[f] for f in sorted(faces)], vertices_faces)
+    #vertices_faces = make_vertex_faces(vertices, foutput)
+    #ct = cy_corner_table.CornerTable()
+    #ct.create_corner_from_vertex_face(vertices, foutput,  vertices_faces)
+    ##ct.create_corner_from_vertex_face(vertices, [faces[f] for f in sorted(faces)], vertices_faces)
 
-    ring_edges = laced_ring.ring_expander(ct)
-    colours = {}
-    for v in xrange(len(vertices)):
-        if ring_edges.get(v, 0):
-            colours[v] = (255, 0, 0)
-        else:
-            colours[v] = (255, 255, 255)
+    #ring_edges = laced_ring.ring_expander(ct)
+    #colours = {}
+    #for v in xrange(len(vertices)):
+        #if ring_edges.get(v, 0):
+            #colours[v] = (255, 0, 0)
+        #else:
+            #colours[v] = (255, 255, 255)
 
-    writer = ply_writer.PlyWriter(racm_filename)
-    writer.from_faces_vertices_list(foutput, vertices, colours)
+    #writer = ply_writer.PlyWriter(racm_filename)
+    #writer.from_faces_vertices_list(foutput, vertices, colours)
 
 
     #print [ct.V[i] for i in ct.O]
