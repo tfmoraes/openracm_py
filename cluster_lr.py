@@ -1,6 +1,7 @@
 import bisect
 import bsddb
 import os
+import random
 import signal
 import sys
 
@@ -39,8 +40,9 @@ def  taubin_smooth(cllr, l, m, steps):
 
 
 class ClusterManager(object):
-    def __init__(self, filename, qsize):
+    def __init__(self, filename, qsize, scd_policy):
         self.filename = filename
+        self.scd_policy = scd_policy
         index_vertices_file = os.path.splitext(filename)[0] + '_v.hdr'
         index_corner_file = os.path.splitext(filename)[0] + '_c.hdr'
         index_corner_vertice_file = os.path.splitext(filename)[0] + '_cv.hdr'
@@ -96,7 +98,7 @@ class ClusterManager(object):
 
         if len(self.cl_usage) == self.queue_size:
             #print "The queue is full"
-            k = min(self.cl_usage, key=lambda x: self.cl_usage[x]['timestamp'])
+            k = self.scd_policy(self.cl_usage)
             del self.cl_usage[k]
             del self.__vertices[k]
             del self.__L[k]
@@ -402,7 +404,17 @@ def save_clusters(lr, clusters, filename):
                                                              cluster_size,
                                                              minv,
                                                              maxv)
-       
+
+
+def lru(cl_usage):
+    k = min(cl_usage, key=lambda x: cl_usage[x]['timestamp'])
+    return k
+
+
+def randomized(cl_usage):
+    k = random.choice(cl_usage.keys())
+    return k
+
 
 def main():
     if sys.argv[1] == '-c':
@@ -425,7 +437,7 @@ def main():
         save_clusters(lr, clusters, sys.argv[4])
 
     elif sys.argv[1] == '-o':
-        clmrg = ClusterManager(sys.argv[2], int(sys.argv[3]))
+        clmrg = ClusterManager(sys.argv[2], int(sys.argv[3]), randomized)
         cl_lr = ClusteredLacedRing(clmrg)
         #cl_lr.to_vertices_faces()
 
@@ -450,7 +462,7 @@ def main():
 
 
     elif sys.argv[1] == '-p':
-        clmrg = ClusterManager(sys.argv[2], int(sys.argv[3]))
+        clmrg = ClusterManager(sys.argv[2], int(sys.argv[3]), randomized)
         cl_lr = ClusteredLacedRing(clmrg)
         
         writer = ply_writer.PlyWriter(sys.argv[4])
