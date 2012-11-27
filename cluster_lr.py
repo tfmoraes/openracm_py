@@ -1,3 +1,4 @@
+import argparse
 import bisect
 import bsddb
 import os
@@ -29,10 +30,8 @@ def  taubin_smooth(cllr, l, m, steps):
         D = {}
         for i in xrange(cllr.m):
             D[i] = calculate_d(cllr, i)
-            print "step", s, "vertex", i
 
         for i in xrange(cllr.m):
-            print "Step", s, "vertex", i
             p = np.array(cllr.vertices[i])
             pl = p + l*D[i]
             nx, ny, nz = pl
@@ -94,8 +93,6 @@ class ClusterManager(object):
         self.cfile.seek(init_cluster)
         str_cluster = self.cfile.read(cluster_size)
     
-        print len(self.cl_usage)
-
         if len(self.cl_usage) == self.queue_size:
             #print "The queue is full"
             k = self.scd_policy(self.cl_usage)
@@ -201,7 +198,7 @@ class ClusterManager(object):
 
     def print_cluster_info(self):
         print "============================================================"
-        for k in sorted(self._n_load_clusters):
+        for k in sorted(self._n_load_clusters, key=lambda x: int(x)):
             print k, self._n_load_clusters[k], self._n_unload_clusters[k]
 
         print "============================================================"
@@ -411,14 +408,47 @@ def lru(cl_usage):
     return k
 
 
+def lu(cl_usage):
+    k = min(cl_usage, key=lambda x: cl_usage[x]['access'])
+    return k
+
+
+def mru(cl_usage):
+    k = max(cl_usage, key=lambda x: cl_usage[x]['timestamp'])
+    return k
+
+
+def mu(cl_usage):
+    k = max(cl_usage, key=lambda x: cl_usage[x]['access'])
+    return k
+
+
 def randomized(cl_usage):
     k = random.choice(cl_usage.keys())
     return k
 
 
 def main():
-    if sys.argv[1] == '-c':
-        vertices, faces = laced_ring.read_ply(sys.argv[2])
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-c', help="create the clusters", action="store_true")
+    parser.add_argument('-o', help="open the clusters and runs taubin smoothing in it", action="store_true")
+    parser.add_argument('-p', help="open the clusters and save it in ply format file",action="store_true")
+    parser.add_argument('-d', default=False, action="store_true", help="show stastic in the end")
+    parser.add_argument('-s', default=1000, type=int)
+    parser.add_argument('-a', choices=("lru", "lu", "mru", "mu", "random"), default="lru")
+    parser.add_argument('input')
+    parser.add_argument('output')
+
+    args = parser.parse_args()
+    
+    algorithms = {"lru": lru,
+                  "lu": lu,
+                  "mru": mru,
+                  "mu": mu,
+                  "random": randomized}
+
+    if args.c:
+        vertices, faces = laced_ring.read_ply(args.input)
         vertices_faces = laced_ring.make_vertex_faces(vertices, faces)
 
         # Corner table
@@ -433,11 +463,11 @@ def main():
         lr.make_lr(ct, edge_ring)
 
         # clusters
-        clusters = create_clusters(lr, int(sys.argv[3]))
-        save_clusters(lr, clusters, sys.argv[4])
+        clusters = create_clusters(lr, args.s)
+        save_clusters(lr, clusters, args.output)
 
-    elif sys.argv[1] == '-o':
-        clmrg = ClusterManager(sys.argv[2], int(sys.argv[3]), randomized)
+    elif args.o:
+        clmrg = ClusterManager(args.input, args.s, algorithms[args.a])
         cl_lr = ClusteredLacedRing(clmrg)
         #cl_lr.to_vertices_faces()
 
@@ -457,18 +487,18 @@ def main():
         taubin_smooth(cl_lr, 0.5, -0.53, 3)
 
 
-        if "-d" in sys.argv:
+        if args.d:
             clmrg.print_cluster_info()
 
 
-    elif sys.argv[1] == '-p':
-        clmrg = ClusterManager(sys.argv[2], int(sys.argv[3]), randomized)
+    elif args.p:
+        clmrg = ClusterManager(args.input, args.s, algorithms[args.a])
         cl_lr = ClusteredLacedRing(clmrg)
         
-        writer = ply_writer.PlyWriter(sys.argv[4])
+        writer = ply_writer.PlyWriter(args.output)
         writer.from_laced_ring(cl_lr)
 
-        if "-d" in sys.argv:
+        if args.d:
             clmrg.print_cluster_info()
 
 
