@@ -53,7 +53,7 @@ class ClusterManager(object):
 
         self.iv_keys = sorted([int(i) + 1 for i in self.index_vertices.keys()])
         self.ic_keys = sorted([int(i) + 1 for i in self.index_corners.keys()])
-        self.icv_keys = sorted([int(i) + 1 for i in self.index_corner_vertice.keys()])
+        #self.icv_keys = sorted([int(i) + 1 for i in self.index_corner_vertice.keys()])
 
         self.cfile = open(filename)
         self.load_header()
@@ -61,6 +61,10 @@ class ClusterManager(object):
         self.cl_usage = {}
         self.queue_size = qsize
         self.timestamp = 0
+
+        self.wastings = []
+        self.last_removed = -1
+        self.last_loaded = -1
 
         self._n_load_clusters = {}
         self._n_unload_clusters = {}
@@ -105,11 +109,16 @@ class ClusterManager(object):
             del self.__V[k]
             del self.__C[k]
 
+            self.last_removed = k
+
+            if k == self.last_loaded:
+                self.wastings.append(k)
+
             try:
                 self._n_unload_clusters[k] += 1
             except KeyError:
                 self._n_unload_clusters[k] = 1
-        
+
         vertices = {}
 
         L = {}
@@ -178,6 +187,11 @@ class ClusterManager(object):
             self._n_load_clusters[cl] = 1
             self._n_unload_clusters[cl] = 0
 
+        self.last_loaded = cl
+        if self.last_removed == cl:
+            print cl
+            self.wastings.append(cl)
+
     def load_vertex_cluster(self, v_id):
         #print ">>>", v_id
         cl = self.index_vertices[str(v_id)]
@@ -203,6 +217,8 @@ class ClusterManager(object):
 
         print "============================================================"
         print self.cl_usage
+        print "============================================================"
+        print sorted(self.wastings)
         sys.exit()
 
 
@@ -233,8 +249,9 @@ class _DictGeomElem(object):
                 self._clmrg.load_cluster(cl)
                 e = self._elems[cl][key]
         elif self._name == 'C':
-            idx = bisect.bisect(self._clmrg.icv_keys, key)
-            cl = self._clmrg.index_corner_vertice[str(self._clmrg.icv_keys[idx] - 1)]
+            #idx = bisect.bisect(self._clmrg.icv_keys, key)
+            #cl = self._clmrg.index_corner_vertice[str(self._clmrg.icv_keys[idx] - 1)]
+            cl = self._clmrg.index_corner_vertice[str(key)]
             try:
                 e = self._elems[cl][key]
             except KeyError:
@@ -382,8 +399,9 @@ def save_clusters(lr, clusters, filename):
                     maxc = max(elem[1], maxc)
                     minc = min(elem[1], minc)
                 elif elem[0] == 'C':
-                    maxcv = max(elem[1], maxcv)
-                    mincv = min(elem[1], mincv)
+                    #maxcv = max(elem[1], maxcv)
+                    #mincv = min(elem[1], mincv)
+                    index_corner_vertice[str(elem[1])] = str(i)
 
                 cfile.write(" ".join([str(e) for e in elem]) + "\n")
             cluster_size = cfile.tell() - init_cluster
@@ -394,8 +412,8 @@ def save_clusters(lr, clusters, filename):
             if maxc > -1:
                 index_corners[str(maxc)] = str(i)
 
-            if maxcv > -1:
-                index_corner_vertice[str(maxcv)] = str(i)
+            #if maxcv > -1:
+                #index_corner_vertice[str(maxcv)] = str(i)
 
             index_clusters[str(i)] = "%d %d %d %d" % (init_cluster,
                                                              cluster_size,
@@ -484,7 +502,7 @@ def main():
 
             ##print t, cl_lr.vertex(c0),cl_lr.vertex(c1),cl_lr.vertex(c2)
 
-        taubin_smooth(cl_lr, 0.5, -0.53, 3)
+        taubin_smooth(cl_lr, 0.5, -0.53, 1)
 
 
         if args.d:
