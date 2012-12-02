@@ -286,9 +286,12 @@ class _DictGeomElem(object):
 
     def __setitem__(self, key, value):
         try:
-            idx = bisect.bisect(self._clmrg.iv_keys, key)
-            cl = self._clmrg.index_vertices[str(self._clmrg.iv_keys[idx] - 1)]
-            self._elems[cl][key] = value
+            if key >= self._clmrg.mr:
+                cl = self._clmrg.index_isolated_vertices[str(key)]
+            else:
+                idx = bisect.bisect(self._clmrg.iv_keys, key)
+                cl = self._clmrg.index_vertices[str(self._clmrg.iv_keys[idx] - 1)]
+                self._elems[cl][key] = value
         except KeyError:
             self._clmrg.load_cluster(cl)
             self._elems[cl][key] = value
