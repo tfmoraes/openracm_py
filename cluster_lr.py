@@ -1,6 +1,7 @@
 import argparse
 import bisect
 import bsddb
+import colorsys
 import os
 import random
 import signal
@@ -43,10 +44,12 @@ class ClusterManager(object):
         self.filename = filename
         self.scd_policy = scd_policy
         index_vertices_file = os.path.splitext(filename)[0] + '_v.hdr'
+        index_isolated_vertices_file = os.path.splitext(filename)[0] + '_iv.hdr'
         index_corner_file = os.path.splitext(filename)[0] + '_c.hdr'
         index_corner_vertice_file = os.path.splitext(filename)[0] + '_cv.hdr'
         index_clusters_file = os.path.splitext(filename)[0] + '_cl.hdr'
         self.index_vertices = bsddb.btopen(index_vertices_file)
+        self.index_isolated_vertices = bsddb.btopen(index_isolated_vertices_file)
         self.index_corners = bsddb.btopen(index_corner_file)
         self.index_corner_vertice = bsddb.btopen(index_corner_vertice_file)
         self.index_clusters = bsddb.btopen(index_clusters_file)
@@ -68,6 +71,8 @@ class ClusterManager(object):
 
         self._n_load_clusters = {}
         self._n_unload_clusters = {}
+
+        self.colour = 0
 
         self.__vertices = {}
         self.__L = {}
@@ -192,6 +197,7 @@ class ClusterManager(object):
             print cl
             self.wastings.append(cl)
 
+
     def load_vertex_cluster(self, v_id):
         #print ">>>", v_id
         cl = self.index_vertices[str(v_id)]
@@ -258,12 +264,16 @@ class _DictGeomElem(object):
                 self._clmrg.load_cluster(cl)
                 e = self._elems[cl][key]
         else:
-            idx = bisect.bisect(self._clmrg.iv_keys, key)
-            cl = self._clmrg.index_vertices[str(self._clmrg.iv_keys[idx] - 1)]
+            if key >= self._clmrg.mr:
+                cl = self._clmrg.index_isolated_vertices[str(key)]
+            else:
+                idx = bisect.bisect(self._clmrg.iv_keys, key)
+                cl = self._clmrg.index_vertices[str(self._clmrg.iv_keys[idx] - 1)]
             try:
                 e = self._elems[cl][key]
             except KeyError:
                 self._clmrg.load_cluster(cl)
+                self._clmrg.colour = [i*255 for i in colorsys.hls_to_rgb(random.randint(0, 360), random.random(), random.random())]
                 try:
                     e = self._elems[cl][key]
                 except KeyError:
@@ -316,6 +326,7 @@ def create_clusters(lr, cluster_size):
     n = -1
     v_id = 0
     print lr.mr, cluster_size
+    inc_iv = {}
     for t in xrange(0, lr.mr):
         if t % cluster_size == 0:
             n += 1
@@ -325,25 +336,37 @@ def create_clusters(lr, cluster_size):
         clusters[n].append(('L', lr.L[v_id][0], lr.L[v_id][1], lr.L[v_id][2]))
         clusters[n].append(('R', lr.R[v_id][0], lr.R[v_id][1], lr.R[v_id][2]))
 
+        vl = lr.L[v_id][0]
+        vr = lr.L[v_id][0]
+
         if lr.L[v_id][2] or lr.R[v_id][2]:
             print "S"
             clusters[n].append(('S', v_id, lr.VOs[v_id][0], lr.VOs[v_id][1], lr.VOs[v_id][2], lr.VOs[v_id][3])) 
+
+        if vl >= lr.mr and not inc_iv.get(vl, 0):
+            inc_iv[vl] = 1
+            clusters[n].append(('v', vl, lr.vertices[vl][0], lr.vertices[vl][1], lr.vertices[vl][2]))
+        
+        if vr >= lr.mr and not inc_iv.get(vr, 0):
+            inc_iv[vr] = 1
+            clusters[n].append(('v', vr, lr.vertices[vr][0], lr.vertices[vr][1], lr.vertices[vr][2]))
 
         v_id += 1
 
     n += 1
     clusters.append([])
-    for v_id in xrange(lr.mr, lr.m):
-        if len(clusters[n]) == 1000:
-            clusters.append([])
-            n += 1
-        clusters[n].append(('v', v_id, lr.vertices[v_id][0], lr.vertices[v_id][1], lr.vertices[v_id][2]))
+    #for v_id in xrange(lr.mr, lr.m):
+        #if not inc_iv.get(v_id, 0):
+            #if len(clusters[n]) == 1000:
+                #clusters.append([])
+                #n += 1
+            #clusters[n].append(('v', v_id, lr.vertices[v_id][0], lr.vertices[v_id][1], lr.vertices[v_id][2]))
 
     print lr.mr, lr.m, lr.number_triangles, len(lr.vertices)
     i = 0
     for t in xrange(lr.mr * 2, lr.number_triangles):
 
-        if i == 200:
+        if i == 300:
             clusters.append([])
             n += 1
             i = 0
@@ -351,16 +374,32 @@ def create_clusters(lr, cluster_size):
         c0 = lr.corner_triangle(t)
         c1 = lr.next_corner(c0)
         c2 = lr.previous_corner(c0)
+
+        v0 = lr.vertex(c0)
+        v1 = lr.vertex(c1)
+        v2 = lr.vertex(c2)
+
+        if v0 >= lr.mr and not inc_iv.get(v0, 0):
+            inc_iv[v0] = 1
+            clusters[n].append(('v', v0, lr.vertices[v0][0], lr.vertices[v0][1], lr.vertices[v0][2]))
+        if v1 >= lr.mr and not inc_iv.get(v1, 0):
+            inc_iv[v1] = 1
+            clusters[n].append(('v', v1, lr.vertices[v1][0], lr.vertices[v1][1], lr.vertices[v1][2]))
+        if v2 >= lr.mr and not inc_iv.get(v2, 0):
+            inc_iv[v2] = 1
+            clusters[n].append(('v', v2, lr.vertices[v2][0], lr.vertices[v2][1], lr.vertices[v2][2]))
+
+
         clusters[n].append(('V', c0, lr.vertex(c0)))
-        clusters[n].append(('C', lr.vertex(c0), c0))
+        clusters[n].append(('C', v0, c0))
         clusters[n].append(('O', c0, lr.oposite(c0)[0]))
 
         clusters[n].append(('V', c1, lr.vertex(c1)))
-        clusters[n].append(('C', lr.vertex(c1), c1))
+        clusters[n].append(('C', v1, c1))
         clusters[n].append(('O', c1, lr.oposite(c1)[0]))
 
         clusters[n].append(('V', c2, lr.vertex(c2)))
-        clusters[n].append(('C', lr.vertex(c2), c2))
+        clusters[n].append(('C', v2, c2))
         clusters[n].append(('O', c2, lr.oposite(c2)[0]))
 
         i += 1
@@ -371,10 +410,12 @@ def save_clusters(lr, clusters, filename):
     with file(filename, 'w') as cfile:
         # indexes
         index_vertices_file = os.path.splitext(filename)[0] + '_v.hdr'
+        index_isolated_vertices_file = os.path.splitext(filename)[0] + '_iv.hdr'
         index_clusters_file = os.path.splitext(filename)[0] + '_cl.hdr'
         index_corner_file = os.path.splitext(filename)[0] + '_c.hdr'
         index_corner_vertice_file = os.path.splitext(filename)[0] + '_cv.hdr'
         index_vertices = bsddb.btopen(index_vertices_file)
+        index_isolated_vertices = bsddb.btopen(index_isolated_vertices_file)
         index_corners = bsddb.btopen(index_corner_file)
         index_corner_vertice = bsddb.btopen(index_corner_vertice_file)
         index_clusters = bsddb.btopen(index_clusters_file)
@@ -393,8 +434,11 @@ def save_clusters(lr, clusters, filename):
 
             for elem in cluster:
                 if elem[0] == 'v':
-                    maxv = max(elem[1], maxv)
-                    minv = min(elem[1], minv)
+                    if elem[1] < lr.mr:
+                        maxv = max(elem[1], maxv)
+                        minv = min(elem[1], minv)
+                    else:
+                        index_isolated_vertices[str(elem[1])] = str(i)
                 elif elem[0] == 'V':
                     maxc = max(elem[1], maxc)
                     minc = min(elem[1], minc)
