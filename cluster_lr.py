@@ -291,7 +291,7 @@ class _DictGeomElem(object):
             else:
                 idx = bisect.bisect(self._clmrg.iv_keys, key)
                 cl = self._clmrg.index_vertices[str(self._clmrg.iv_keys[idx] - 1)]
-                self._elems[cl][key] = value
+            self._elems[cl][key] = value
         except KeyError:
             self._clmrg.load_cluster(cl)
             self._elems[cl][key] = value
