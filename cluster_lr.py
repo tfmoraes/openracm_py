@@ -39,6 +39,21 @@ def  taubin_smooth(cllr, l, m, steps):
             cllr.vertices[i] = nx, ny, nz
 
 
+def random_access(cllr, n):
+    """
+    Access randomly vertices from a mesh and access if ring-0
+    cllr - A clustered laced ring structure
+    n - The number of random access.
+    """
+
+    for i in xrange(n):
+        vi = random.randint(0 , cllr.m - 1)
+        v = cllr.vertices[vi]
+        #for vj in cllr.get_ring0(vi):
+            #pass
+
+
+
 class ClusterManager(object):
     def __init__(self, filename, qsize, scd_policy):
         self.filename = filename
@@ -71,6 +86,9 @@ class ClusterManager(object):
 
         self._n_load_clusters = {}
         self._n_unload_clusters = {}
+        self.misses = 0
+        self.hits = 0
+        self.access = 0
 
         self.colour = 0
 
@@ -197,6 +215,7 @@ class ClusterManager(object):
             print cl
             self.wastings.append(cl)
 
+        self.misses += 1
 
     def load_vertex_cluster(self, v_id):
         #print ">>>", v_id
@@ -237,6 +256,10 @@ class ClusterManager(object):
             self.cl_usage[cl_key] = {'timestamp': self.timestamp,
                                      'access': 1}
 
+    def print_hm_info(self):
+        print self.access, self.hits, self.misses
+
+
 
 class _DictGeomElem(object):
     def __init__(self, clmrg, name, elems):
@@ -245,12 +268,14 @@ class _DictGeomElem(object):
         self._clmrg = clmrg
 
     def __getitem__(self, key):
+        self._clmrg.access += 1
         key = int(key)
         if self._name in ('V', 'O'):
-            idx = bisect.bisect(self._clmrg.ic_keys, key)
-            cl = self._clmrg.index_corners[str(self._clmrg.ic_keys[idx] - 1)]
+            #idx = bisect.bisect(self._clmrg.ic_keys, key)
+            cl = self._clmrg.index_corners[str(key)]
             try:
                 e = self._elems[cl][key]
+                self._clmrg.hits += 1
             except KeyError:
                 self._clmrg.load_cluster(cl)
                 e = self._elems[cl][key]
@@ -260,6 +285,7 @@ class _DictGeomElem(object):
             cl = self._clmrg.index_corner_vertice[str(key)]
             try:
                 e = self._elems[cl][key]
+                self._clmrg.hits += 1
             except KeyError:
                 self._clmrg.load_cluster(cl)
                 e = self._elems[cl][key]
@@ -271,20 +297,23 @@ class _DictGeomElem(object):
                 cl = self._clmrg.index_vertices[str(self._clmrg.iv_keys[idx] - 1)]
             try:
                 e = self._elems[cl][key]
+                self._clmrg.hits += 1
             except KeyError:
                 self._clmrg.load_cluster(cl)
                 self._clmrg.colour = [i*255 for i in colorsys.hls_to_rgb(random.randint(0, 360), random.random(), random.random())]
                 try:
                     e = self._elems[cl][key]
-                except KeyError:
-                    print cl, key
+                except KeyError, err:
+                    print cl, key, self._name, self._clmrg.mr, idx
                     print self._clmrg.iv_keys
+                    print self._clmrg.index_vertices
                     sys.exit()
 
         self._clmrg.update_cluster_usage(cl)
         return e
 
     def __setitem__(self, key, value):
+        self._clmrg.access += 1
         try:
             if key >= self._clmrg.mr:
                 cl = self._clmrg.index_isolated_vertices[str(key)]
@@ -292,6 +321,7 @@ class _DictGeomElem(object):
                 idx = bisect.bisect(self._clmrg.iv_keys, key)
                 cl = self._clmrg.index_vertices[str(self._clmrg.iv_keys[idx] - 1)]
             self._elems[cl][key] = value
+            self._clmrg.hits += 1
         except KeyError:
             self._clmrg.load_cluster(cl)
             self._elems[cl][key] = value
@@ -330,6 +360,7 @@ def create_clusters(lr, cluster_size):
     v_id = 0
     print lr.mr, cluster_size
     inc_iv = {}
+    inc_c = {}
     for t in xrange(0, lr.mr):
         if t % cluster_size == 0:
             n += 1
@@ -345,6 +376,50 @@ def create_clusters(lr, cluster_size):
         if lr.L[v_id][2] or lr.R[v_id][2]:
             print "S"
             clusters[n].append(('S', v_id, lr.VOs[v_id][0], lr.VOs[v_id][1], lr.VOs[v_id][2], lr.VOs[v_id][3])) 
+
+            for c0 in lr.VOs[v_id]:
+                if c0 != -1:
+                    c1 = lr.next_corner(c0)
+                    c2 = lr.previous_corner(c0)
+
+                    if not inc_c.get(c0, 0):
+                        inc_c[c0] = 1
+                        vc0 = lr.vertex(c0)
+                        clusters[n].append(('V', c0, vc0))
+                        clusters[n].append(('O', c0, lr.oposite(c0)[0]))
+                        clusters[n].append(('C', vc0, c0))
+
+                        if vc0 >= lr.mr and not inc_iv.get(vc0, 0):
+                            inc_iv[vc0] = 1
+                            clusters[n].append(('v', vc0, lr.vertices[vc0][0],
+                                                lr.vertices[vc0][1],
+                                                lr.vertices[vc0][2]))
+
+                    if not inc_c.get(c1, 0):
+                        inc_c[c1] = 1
+                        vc1 = lr.vertex(c1)
+                        clusters[n].append(('V', c1, vc1))
+                        clusters[n].append(('O', c1, lr.oposite(c1)[0]))
+                        clusters[n].append(('C', vc1, c1))
+                        
+                        if vc1 >= lr.mr and not inc_iv.get(vc1, 0):
+                            inc_iv[vc1] = 1
+                            clusters[n].append(('v', vc1, lr.vertices[vc1][0],
+                                                lr.vertices[vc1][1],
+                                                lr.vertices[vc1][2]))
+                        
+                    if not inc_c.get(c2, 0):
+                        inc_c[c2] = 1
+                        vc2 = lr.vertex(c2)
+                        clusters[n].append(('V', c2, vc2))
+                        clusters[n].append(('O', c2, lr.oposite(c2)[0]))
+                        clusters[n].append(('C', vc2, c2))
+
+                        if vc2 >= lr.mr and not inc_iv.get(vc2, 0):
+                            inc_iv[vc2] = 1
+                            clusters[n].append(('v', vc2, lr.vertices[vc2][0],
+                                                lr.vertices[vc2][1],
+                                                lr.vertices[vc2][2]))
 
         if vl >= lr.mr and not inc_iv.get(vl, 0):
             inc_iv[vl] = 1
@@ -393,17 +468,20 @@ def create_clusters(lr, cluster_size):
             clusters[n].append(('v', v2, lr.vertices[v2][0], lr.vertices[v2][1], lr.vertices[v2][2]))
 
 
-        clusters[n].append(('V', c0, lr.vertex(c0)))
-        clusters[n].append(('C', v0, c0))
-        clusters[n].append(('O', c0, lr.oposite(c0)[0]))
+        if not inc_c.get(c0, 0):
+            clusters[n].append(('V', c0, lr.vertex(c0)))
+            clusters[n].append(('C', v0, c0))
+            clusters[n].append(('O', c0, lr.oposite(c0)[0]))
 
-        clusters[n].append(('V', c1, lr.vertex(c1)))
-        clusters[n].append(('C', v1, c1))
-        clusters[n].append(('O', c1, lr.oposite(c1)[0]))
+        if not inc_c.get(c1, 0):
+            clusters[n].append(('V', c1, lr.vertex(c1)))
+            clusters[n].append(('C', v1, c1))
+            clusters[n].append(('O', c1, lr.oposite(c1)[0]))
 
-        clusters[n].append(('V', c2, lr.vertex(c2)))
-        clusters[n].append(('C', v2, c2))
-        clusters[n].append(('O', c2, lr.oposite(c2)[0]))
+        if not inc_c.get(c2, 0):
+            clusters[n].append(('V', c2, lr.vertex(c2)))
+            clusters[n].append(('C', v2, c2))
+            clusters[n].append(('O', c2, lr.oposite(c2)[0]))
 
         i += 1
 
@@ -443,8 +521,8 @@ def save_clusters(lr, clusters, filename):
                     else:
                         index_isolated_vertices[str(elem[1])] = str(i)
                 elif elem[0] == 'V':
-                    maxc = max(elem[1], maxc)
-                    minc = min(elem[1], minc)
+                    index_corners[str(elem[1])] = str(i)
+
                 elif elem[0] == 'C':
                     #maxcv = max(elem[1], maxcv)
                     #mincv = min(elem[1], mincv)
@@ -456,8 +534,8 @@ def save_clusters(lr, clusters, filename):
             if maxv > -1:
                 index_vertices[str(maxv)] = str(i)
                 
-            if maxc > -1:
-                index_corners[str(maxc)] = str(i)
+            #if maxc > -1:
+                #index_corners[str(maxc)] = str(i)
 
             #if maxcv > -1:
                 #index_corner_vertice[str(maxcv)] = str(i)
@@ -498,7 +576,9 @@ def main():
     parser.add_argument('-c', help="create the clusters", action="store_true")
     parser.add_argument('-o', help="open the clusters and runs taubin smoothing in it", action="store_true")
     parser.add_argument('-p', help="open the clusters and save it in ply format file",action="store_true")
+    parser.add_argument('-r', help="open the clusters and access it in random way",action="store_true")
     parser.add_argument('-d', default=False, action="store_true", help="show stastic in the end")
+    parser.add_argument('-m', default=False, action="store_true", help="show stastic in the end about hit and misses")
     parser.add_argument('-s', default=1000, type=int)
     parser.add_argument('-a', choices=("lru", "lu", "mru", "mu", "random"), default="lru")
     parser.add_argument('input')
@@ -555,6 +635,8 @@ def main():
         if args.d:
             clmrg.print_cluster_info()
 
+        if args.m:
+            clmrg.print_hm_info()
 
     elif args.p:
         clmrg = ClusterManager(args.input, args.s, algorithms[args.a])
@@ -565,6 +647,21 @@ def main():
 
         if args.d:
             clmrg.print_cluster_info()
+
+        if args.m:
+            clmrg.print_hm_info()
+
+    elif args.r:
+        clmrg = ClusterManager(args.input, args.s, algorithms[args.a])
+        cl_lr = ClusteredLacedRing(clmrg)
+
+        random_access(cl_lr, int(args.output))
+
+        if args.d:
+            clmrg.print_cluster_info()
+
+        if args.m:
+            clmrg.print_hm_info()
 
 
 if __name__ == '__main__':

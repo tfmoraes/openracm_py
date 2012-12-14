@@ -1104,17 +1104,21 @@ class LacedRing(object):
             faces.append((nv, self.R[v][0], v))
             #v = nv
 
-        for i in xrange(0, len(self.V), 3):
-            faces.append((self.V[i], self.V[i + 1], self.V[i + 2]))
-            colours[self.V[i]] = 255, 0, 0
-            colours[self.V[i + 1]] = 255, 0, 0
-            colours[self.V[i + 2]] = 255, 0, 0
+        faces_t0 = []
+        init = self.triangle(8 * self.mr)
+        for t in xrange(init, self.number_triangles):
+            v, vn, vp = [self.vertex(c) for c in self.get_corners_triangle(t)]
+            faces_t0.append((v, vn, vp))
+
+
+        writer = ply_writer.PlyWriter('/tmp/saida_faces_t0.ply')
+        writer.from_faces_vertices_list(faces_t0, self.vertices)
 
         #cl[self.ring[0]] = 255, 0, 0
         #cl[self.ring[-1]] = 0, 255, 0
 
         writer = ply_writer.PlyWriter('/tmp/saida_linhas.ply')
-        writer.from_faces_vertices_list(lines, self.vertices._elems.values())
+        writer.from_faces_vertices_list(lines, self.vertices)
 
         return self.vertices, faces, colours
                          
@@ -1336,10 +1340,10 @@ def test_laced_ring(vertices, faces, cluster_size, pmin):
     edge_ring.save_edge()
     lr = LacedRing()
     lr.make_lr(ct, edge_ring)
-    lr.test()
-    #vertices, faces, colours = lr.to_vertices_faces()
-    #writer = ply_writer.PlyWriter('/tmp/saida.ply')
-    #writer.from_faces_vertices_list(faces, vertices, colours)
+    #lr.test()
+    vertices, faces, colours = lr.to_vertices_faces()
+    writer = ply_writer.PlyWriter('/tmp/saida.ply')
+    writer.from_faces_vertices_list(faces, vertices, colours)
 
 
 def main():

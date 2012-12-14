@@ -37,9 +37,11 @@ class PlyWriter(object):
 
     def from_laced_ring(self, lr):
         with file(self.filename, 'w') as ply_file:
-            self._write_header(ply_file, lr.m,  lr.number_triangles)
+            self._write_header(ply_file, lr.m,  lr.number_triangles, has_colours=True)
             for v in xrange(lr.m):
-                ply_file.write(' '.join(['%f' % i for i in lr.vertices[v]]) + '\n')
+                ply_file.write(' '.join(['%f' % i for i in lr.vertices[v]]) + ' ')
+                ply_file.write(' '.join(['%d' % i for i in lr.cluster_manager.colour]))
+                ply_file.write(' 0 \n')
 
             for t_id in xrange(lr.number_triangles):
                 c, cn, cp = lr.get_corners_triangle(t_id)

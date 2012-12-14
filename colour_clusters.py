@@ -137,7 +137,7 @@ def main():
 
     vertices, faces = read_ply(args.input)
     clusters = clusterize(faces, args.cluster_size)
-    #colours = colorize_clusters(faces, clusters) 
+    colours = colorize_clusters(faces, clusters) 
 
     if args.x:
         number_cluster = len(faces) / float(args.cluster_size)
@@ -145,9 +145,8 @@ def main():
             number_cluster += 1
         
         basename, extension = os.path.splitext(args.output)
-        for n, cfaces in enumerate(clusters):
-            writer = ply_writer.PlyWriter('%s_%d%s' % (basename, n, extension))
-            writer.from_faces_vertices_list([faces[f] for f in cfaces], vertices, colours)
+        writer = ply_writer.PlyWriter('%s.%s' % (basename, extension))
+        writer.from_faces_vertices_list(faces, vertices, colours)
     else:
         #writer = ply_writer.PlyWriter(args.output)
         #writer.from_faces_vertices_list(faces, vertices, colours)
