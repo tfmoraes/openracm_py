@@ -2,6 +2,7 @@ import argparse
 import bisect
 import bsddb
 import colorsys
+import math
 import os
 import random
 import signal
@@ -55,7 +56,7 @@ def random_access(cllr, n):
 
 
 class ClusterManager(object):
-    def __init__(self, filename, qsize, scd_policy):
+    def __init__(self, filename, qsize, scd_policy, lbd=0.7):
         self.filename = filename
         self.scd_policy = scd_policy
         index_vertices_file = os.path.splitext(filename)[0] + '_v.hdr'
@@ -77,8 +78,9 @@ class ClusterManager(object):
         self.load_header()
 
         self.cl_usage = {}
-        self.queue_size = qsize
+        self.queue_size = int(math.ceil((qsize / 100.0 * len(self.index_clusters))))
         self.timestamp = 0
+        self.lbd = lbd
 
         self.wastings = []
         self.last_removed = -1
@@ -252,12 +254,19 @@ class ClusterManager(object):
         try:
             self.cl_usage[cl_key]['timestamp'] = self.timestamp
             self.cl_usage[cl_key]['access'] += 1
+            self.cl_usage[cl_key]['crf'] = 1.0 + 2.0 ** (-self.lbd) * self.cl_usage[cl_key]['crf'] 
         except KeyError:
             self.cl_usage[cl_key] = {'timestamp': self.timestamp,
-                                     'access': 1}
+                                     'access': 1,
+                                     'crf': 0}
+            self.cl_usage[cl_key]['crf'] = 1.0 + 2.0 ** (-self.lbd) * self.cl_usage[cl_key]['crf'] 
+
+        for cl in self.cl_usage:
+            if cl != cl_key:
+                self.cl_usage[cl]['crf'] = 2 ** (-self.lbd) * self.cl_usage[cl]['crf']
 
     def print_hm_info(self):
-        print self.access, self.hits, self.misses
+        print self.queue_size, len(self.index_clusters), self.access, self.hits, self.misses, float(self.hits) / self.access
 
 
 
@@ -571,6 +580,11 @@ def randomized(cl_usage):
     return k
 
 
+def lrfu(cl_usage):
+    k = min(cl_usage, key=lambda x: cl_usage[x]['crf'])
+    return k
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-c', help="create the clusters", action="store_true")
@@ -580,7 +594,9 @@ def main():
     parser.add_argument('-d', default=False, action="store_true", help="show stastic in the end")
     parser.add_argument('-m', default=False, action="store_true", help="show stastic in the end about hit and misses")
     parser.add_argument('-s', default=1000, type=int)
-    parser.add_argument('-a', choices=("lru", "lu", "mru", "mu", "random"), default="lru")
+    parser.add_argument('-l', default=0.7, type=float)
+    parser.add_argument('-a', choices=("lru", "lu", "mru", "mu", "random",
+                                       "lrfu"), default="lru")
     parser.add_argument('input')
     parser.add_argument('output')
 
@@ -590,7 +606,8 @@ def main():
                   "lu": lu,
                   "mru": mru,
                   "mu": mu,
-                  "random": randomized}
+                  "random": randomized,
+                  "lrfu": lrfu}
 
     if args.c:
         vertices, faces = laced_ring.read_ply(args.input)
@@ -612,7 +629,7 @@ def main():
         save_clusters(lr, clusters, args.output)
 
     elif args.o:
-        clmrg = ClusterManager(args.input, args.s, algorithms[args.a])
+        clmrg = ClusterManager(args.input, args.s, algorithms[args.a], args.l)
         cl_lr = ClusteredLacedRing(clmrg)
         #cl_lr.to_vertices_faces()
 
