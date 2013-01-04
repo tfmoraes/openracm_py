@@ -7,6 +7,7 @@ import os
 import random
 import signal
 import sys
+import types
 
 import numpy as np
 
@@ -56,7 +57,7 @@ def random_access(cllr, n):
 
 
 class ClusterManager(object):
-    def __init__(self, filename, qsize, scd_policy, lbd=0.7):
+    def __init__(self, filename, qsize, scd_policy, lbd=0.7, upd_cl_us=None):
         self.filename = filename
         self.scd_policy = scd_policy
         index_vertices_file = os.path.splitext(filename)[0] + '_v.hdr'
@@ -109,6 +110,11 @@ class ClusterManager(object):
         self.V = _DictGeomElem(self, 'V', self.__V)
         self.C = _DictGeomElem(self, 'C', self.__C)
         self.VOs = _DictGeomElem(self, 'VOs', self.__VOs)
+
+        if upd_cl_us is None:
+            self.update_cluster_usage = self._update_cluster_usage
+        else:
+            self.update_cluster_usage = types.MethodType(upd_cl_us, self)
 
         signal.signal(signal.SIGINT , lambda x, y: self.print_cluster_info())
 
@@ -248,26 +254,16 @@ class ClusterManager(object):
         print sorted(self.wastings)
         sys.exit()
 
-
-    def update_cluster_usage(self, cl_key):
-        self.timestamp += 1
+    def _update_cluster_usage(self, cl_key):
         try:
             self.cl_usage[cl_key]['timestamp'] = self.timestamp
             self.cl_usage[cl_key]['access'] += 1
-            self.cl_usage[cl_key]['crf'] = 1.0 + 2.0 ** (-self.lbd) * self.cl_usage[cl_key]['crf'] 
         except KeyError:
             self.cl_usage[cl_key] = {'timestamp': self.timestamp,
-                                     'access': 1,
-                                     'crf': 0}
-            self.cl_usage[cl_key]['crf'] = 1.0 + 2.0 ** (-self.lbd) * self.cl_usage[cl_key]['crf'] 
-
-        for cl in self.cl_usage:
-            if cl != cl_key:
-                self.cl_usage[cl]['crf'] = 2 ** (-self.lbd) * self.cl_usage[cl]['crf']
+                                     'access': 1,}
 
     def print_hm_info(self):
         print self.queue_size, len(self.index_clusters), self.access, self.hits, self.misses, float(self.hits) / self.access
-
 
 
 class _DictGeomElem(object):
@@ -585,6 +581,18 @@ def lrfu(cl_usage):
     return k
 
 
+def update_cluster_usage_lrfu(clmrg, cl_key):
+    try:
+        clmrg.cl_usage[cl_key]['crf'] = 1.0 + 2.0 ** (-clmrg.lbd) * clmrg.cl_usage[cl_key]['crf'] 
+    except KeyError:
+        clmrg.cl_usage[cl_key] = {'crf': 0}
+        clmrg.cl_usage[cl_key]['crf'] = 1.0 + 2.0 ** (-clmrg.lbd) * clmrg.cl_usage[cl_key]['crf'] 
+
+    for cl in clmrg.cl_usage:
+        if cl != cl_key:
+            clmrg.cl_usage[cl]['crf'] = 2 ** (-clmrg.lbd) * clmrg.cl_usage[cl]['crf']
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-c', help="create the clusters", action="store_true")
@@ -656,7 +664,10 @@ def main():
             clmrg.print_hm_info()
 
     elif args.p:
-        clmrg = ClusterManager(args.input, args.s, algorithms[args.a])
+        if args.a == 'lrfu':
+            clmrg = ClusterManager(args.input, args.s, algorithms[args.a], args.l,upd_cl_us=update_cluster_usage_lrfu)
+        else:
+            clmrg = ClusterManager(args.input, args.s, algorithms[args.a], args.l)
         cl_lr = ClusteredLacedRing(clmrg)
         
         writer = ply_writer.PlyWriter(args.output)
@@ -669,7 +680,11 @@ def main():
             clmrg.print_hm_info()
 
     elif args.r:
-        clmrg = ClusterManager(args.input, args.s, algorithms[args.a])
+        if args.a == 'lrfu':
+            clmrg = ClusterManager(args.input, args.s, algorithms[args.a], upd_cl_us=update_cluster_usage_lrfu)
+        else:
+            clmrg = ClusterManager(args.input, args.s, algorithms[args.a], args.l)
+
         cl_lr = ClusteredLacedRing(clmrg)
 
         random_access(cl_lr, int(args.output))
