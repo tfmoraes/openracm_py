@@ -6,6 +6,7 @@ import math
 import os
 import random
 import signal
+import struct
 import sys
 import types
 
@@ -15,6 +16,18 @@ import cy_corner_table
 import laced_ring
 import ply_reader
 import ply_writer
+
+STRUCT_FORMATS = {'v': 'cLddd',
+                  'L': 'clll',
+                  'R': 'clll',
+                  'S': 'clllll',
+
+                  'V': 'cll',
+                  'O': 'cll',
+                  'C': 'cll',
+                 }
+
+STRUCT_SIZES = {key:struct.calcsize(f) for (key, f) in STRUCT_FORMATS.items()}
 
 def calculate_d(cllr, vi):
     t = 0
@@ -103,13 +116,13 @@ class ClusterManager(object):
         self.__C = {}
         self.__VOs = {}
 
-        self.vertices = _DictGeomElem(self, 'vertices', self.__vertices)
-        self.L = _DictGeomElem(self, 'L', self.__L)
-        self.R = _DictGeomElem(self, 'R', self.__R)
-        self.O = _DictGeomElem(self, 'O', self.__O)
-        self.V = _DictGeomElem(self, 'V', self.__V)
-        self.C = _DictGeomElem(self, 'C', self.__C)
-        self.VOs = _DictGeomElem(self, 'VOs', self.__VOs)
+        self.vertices = _DictGeomElemVertex(self, 'vertices', self.__vertices)
+        self.L = _DictGeomElemVertex(self, 'L', self.__L)
+        self.R = _DictGeomElemVertex(self, 'R', self.__R)
+        self.O = _DictGeomElemCorners(self, 'O', self.__O)
+        self.V = _DictGeomElemCorners(self, 'V', self.__V)
+        self.C = _DictGeomElemVertexCluster(self, 'C', self.__C)
+        self.VOs = _DictGeomElemVertex(self, 'VOs', self.__VOs)
 
         if upd_cl_us is None:
             self.update_cluster_usage = self._update_cluster_usage
@@ -123,6 +136,7 @@ class ClusterManager(object):
         self.m = int(self.cfile.readline().split(':')[1].strip())
         self.number_triangles = int(self.cfile.readline().split(':')[1].strip())
 
+    #@profile
     def load_cluster(self, cl):
         init_cluster, cluster_size, iface, eface = [int(i) for i in self.index_clusters[cl].split()]
         self.cfile.seek(init_cluster)
@@ -159,38 +173,76 @@ class ClusterManager(object):
         V = {}
         C = {}
         O = {}
-        cluster = str_cluster.split('\n')
-        for l in cluster:
-            if l.startswith('v'):
-                tmp = l.split()
-                v_id = int(tmp[1])
-                vertices[v_id] = [float(i) for i in tmp[2:]]
-            elif l.startswith('L'):
-                tmp = l.split()
-                L[v_id] = [int(tmp[1]), int(tmp[2]), int(tmp[3])]
-            elif l.startswith('R'):
-                tmp = l.split()
-                R[v_id] = [int(tmp[1]), int(tmp[2]), int(tmp[3])]
-            elif l.startswith('S'):
-                tmp = l.split()
-                v_id = int(tmp[1])
-                VOs[v_id] = [int(e) for e in tmp[2::]]
+        cluster = str_cluster
+        init = 0
+        cluster_size = len(cluster)
+        while init != cluster_size:
+            tmp = cluster[init: init + STRUCT_SIZES[cluster[init]]]
+            init += STRUCT_SIZES[cluster[init]]
+            t_element = tmp[0]
+            #cluster = cluster[STRUCT_SIZES[cluster[0]]::]
 
-            elif l.startswith('V'):
-                tmp = l.split()
-                c_id = int(tmp[1])
-                v_id = int(tmp[2])
+            if t_element == 'v':
+                c_, v_id, vx, vy, vz = struct.unpack(STRUCT_FORMATS['v'], tmp) 
+                vertices[v_id] = [vx, vy, vz]
+
+            elif t_element == 'L':
+                c_, l0, l1, l2 = struct.unpack(STRUCT_FORMATS['L'], tmp) 
+                L[v_id] = [l0, l1, l2]
+
+            elif t_element == 'R':
+                c_, r0, r1, r2 = struct.unpack(STRUCT_FORMATS['R'], tmp) 
+                R[v_id] = [r0, r1, r2]
+
+            elif t_element == 'S':
+                c_, s0, s1, s2, s3, s4 = struct.unpack(STRUCT_FORMATS['S'], tmp)
+                VOs[v_id] = [s0, s1, s2, s3, s4]
+
+            elif t_element == 'V':
+                c_, c_id, v_id = struct.unpack(STRUCT_FORMATS['V'], tmp)
                 V[c_id] = v_id
-            elif l.startswith('C'):
-                tmp = l.split()
-                v_id = int(tmp[1])
-                c_id = int(tmp[2])
+
+            elif t_element == 'C':
+                c_, v_id, c_id = struct.unpack(STRUCT_FORMATS['C'], tmp)
                 C[v_id] = c_id
-            elif l.startswith('O'):
-                tmp = l.split()
-                c_id = int(tmp[1])
-                c_o = int(tmp[2])
+
+            elif t_element == 'O':
+                c_, c_id, c_o = struct.unpack(STRUCT_FORMATS['O'], tmp)
                 O[c_id] = c_o
+                
+
+        #for l in cluster:
+            #if l:
+                #if l[0] == 'v':
+                    #tmp = l.split()
+                    #v_id = int(tmp[1])
+                    #vertices[v_id] = [float(i) for i in tmp[2:]]
+                #elif l[0] == 'L':
+                    #tmp = l.split()
+                    #L[v_id] = [int(tmp[1]), int(tmp[2]), int(tmp[3])]
+                #elif l[0] == 'R':
+                    #tmp = l.split()
+                    #R[v_id] = [int(tmp[1]), int(tmp[2]), int(tmp[3])]
+                #elif l[0] == 'S':
+                    #tmp = l.split()
+                    #v_id = int(tmp[1])
+                    #VOs[v_id] = [int(e) for e in tmp[2::]]
+
+                #elif l[0] == 'V':
+                    #tmp = l.split()
+                    #c_id = int(tmp[1])
+                    #v_id = int(tmp[2])
+                    #V[c_id] = v_id
+                #elif l[0] == 'C':
+                    #tmp = l.split()
+                    #v_id = int(tmp[1])
+                    #c_id = int(tmp[2])
+                    #C[v_id] = c_id
+                #elif l[0] == 'O':
+                    #tmp = l.split()
+                    #c_id = int(tmp[1])
+                    #c_o = int(tmp[2])
+                    #O[c_id] = c_o
         
         #try:
             #minv = min(vertices)
@@ -335,6 +387,67 @@ class _DictGeomElem(object):
 
     def __len__(self):
         return len(self._elems)
+
+
+class _DictGeomElemCorners(_DictGeomElem):
+    def __getitem__(self, key):
+        self._clmrg.access += 1
+        key = int(key)
+        cl = self._clmrg.index_corners[str(key)]
+        try:
+            e = self._elems[cl][key]
+            self._clmrg.hits += 1
+        except KeyError:
+            self._clmrg.load_cluster(cl)
+            e = self._elems[cl][key]
+
+        self._clmrg.update_cluster_usage(cl)
+        return e
+
+
+class _DictGeomElemVertexCluster(_DictGeomElem):
+    def __getitem__(self, key):
+        self._clmrg.access += 1
+        key = int(key)
+        #idx = bisect.bisect(self._clmrg.icv_keys, key)
+        #cl = self._clmrg.index_corner_vertice[str(self._clmrg.icv_keys[idx] - 1)]
+        cl = self._clmrg.index_corner_vertice[str(key)]
+        try:
+            e = self._elems[cl][key]
+            self._clmrg.hits += 1
+        except KeyError:
+            self._clmrg.load_cluster(cl)
+            e = self._elems[cl][key]
+        self._clmrg.update_cluster_usage(cl)
+        return e
+
+
+class _DictGeomElemVertex(_DictGeomElem):
+    def __getitem__(self, key):
+        self._clmrg.access += 1
+        key = int(key)
+
+        if key >= self._clmrg.mr:
+            cl = self._clmrg.index_isolated_vertices[str(key)]
+        else:
+            idx = bisect.bisect(self._clmrg.iv_keys, key)
+            cl = self._clmrg.index_vertices[str(self._clmrg.iv_keys[idx] - 1)]
+        try:
+            e = self._elems[cl][key]
+            self._clmrg.hits += 1
+        except KeyError:
+            self._clmrg.load_cluster(cl)
+            self._clmrg.colour = [i*255 for i in colorsys.hls_to_rgb(random.randint(0, 360), random.random(), random.random())]
+            try:
+                e = self._elems[cl][key]
+            except KeyError, err:
+                print cl, key, self._name, self._clmrg.mr, idx
+                print self._clmrg.iv_keys
+                print self._clmrg.index_vertices
+                sys.exit()
+
+        self._clmrg.update_cluster_usage(cl)
+        return e
 
 
 class ClusteredLacedRing(laced_ring.LacedRing):
@@ -533,7 +646,14 @@ def save_clusters(lr, clusters, filename):
                     #mincv = min(elem[1], mincv)
                     index_corner_vertice[str(elem[1])] = str(i)
 
-                cfile.write(" ".join([str(e) for e in elem]) + "\n")
+                #cfile.write(" ".join([str(e) for e in elem]) + "\n")
+                try:
+                    cfile.write(struct.pack(STRUCT_FORMATS[elem[0]], *elem))
+                except struct.error, e:
+                    print elem
+                    print STRUCT_FORMATS[elem[0]]
+                    print e
+                    sys.exit()
             cluster_size = cfile.tell() - init_cluster
 
             if maxv > -1:
@@ -695,6 +815,7 @@ def main():
         if args.m:
             clmrg.print_hm_info()
 
+    print STRUCT_SIZES
 
 if __name__ == '__main__':
     main()
