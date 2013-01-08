@@ -2,7 +2,9 @@ import argparse
 import bisect
 import bsddb
 import colorsys
+import io
 import math
+import mmap
 import os
 import random
 import signal
@@ -10,8 +12,11 @@ import struct
 import sys
 import types
 
+from bisect import bisect
+
 import numpy as np
 
+import cluster_loader
 import cy_corner_table
 import laced_ring
 import ply_reader
@@ -88,7 +93,8 @@ class ClusterManager(object):
         self.ic_keys = sorted([int(i) + 1 for i in self.index_corners.keys()])
         #self.icv_keys = sorted([int(i) + 1 for i in self.index_corner_vertice.keys()])
 
-        self.cfile = open(filename)
+        self.cfile = io.open(filename, 'rb')
+        #self.cfile = mmap.mmap(cfile.fileno(), 0, access=mmap.ACCESS_READ)
         self.load_header()
 
         self.cl_usage = {}
@@ -141,6 +147,8 @@ class ClusterManager(object):
         init_cluster, cluster_size, iface, eface = [int(i) for i in self.index_clusters[cl].split()]
         self.cfile.seek(init_cluster)
         str_cluster = self.cfile.read(cluster_size)
+
+        print cluster_size
     
         if len(self.cl_usage) == self.queue_size:
             #print "The queue is full"
@@ -164,97 +172,98 @@ class ClusterManager(object):
             except KeyError:
                 self._n_unload_clusters[k] = 1
 
-        vertices = {}
+        #vertices = {}
 
-        L = {}
-        R = {}
-        VOs = {}
+        #L = {}
+        #R = {}
+        #VOs = {}
 
-        V = {}
-        C = {}
-        O = {}
-        cluster = str_cluster
-        init = 0
-        cluster_size = len(cluster)
-        while init != cluster_size:
-            tmp = cluster[init: init + STRUCT_SIZES[cluster[init]]]
-            init += STRUCT_SIZES[cluster[init]]
-            t_element = tmp[0]
-            #cluster = cluster[STRUCT_SIZES[cluster[0]]::]
+        #V = {}
+        #C = {}
+        #O = {}
+        #cluster = str_cluster
+        #init = 0
+        #cluster_size = len(cluster)
+        #while init != cluster_size:
+            #tmp = cluster[init: init + STRUCT_SIZES[cluster[init]]]
+            #init += STRUCT_SIZES[cluster[init]]
+            #t_element = tmp[0]
+            ##cluster = cluster[STRUCT_SIZES[cluster[0]]::]
 
-            if t_element == 'v':
-                c_, v_id, vx, vy, vz = struct.unpack(STRUCT_FORMATS['v'], tmp) 
-                vertices[v_id] = [vx, vy, vz]
+            #if t_element == 'v':
+                #c_, v_id, vx, vy, vz = struct.unpack(STRUCT_FORMATS['v'], tmp) 
+                #vertices[v_id] = [vx, vy, vz]
 
-            elif t_element == 'L':
-                c_, l0, l1, l2 = struct.unpack(STRUCT_FORMATS['L'], tmp) 
-                L[v_id] = [l0, l1, l2]
+            #elif t_element == 'L':
+                #c_, l0, l1, l2 = struct.unpack(STRUCT_FORMATS['L'], tmp) 
+                #L[v_id] = [l0, l1, l2]
 
-            elif t_element == 'R':
-                c_, r0, r1, r2 = struct.unpack(STRUCT_FORMATS['R'], tmp) 
-                R[v_id] = [r0, r1, r2]
+            #elif t_element == 'R':
+                #c_, r0, r1, r2 = struct.unpack(STRUCT_FORMATS['R'], tmp) 
+                #R[v_id] = [r0, r1, r2]
 
-            elif t_element == 'S':
-                c_, s0, s1, s2, s3, s4 = struct.unpack(STRUCT_FORMATS['S'], tmp)
-                VOs[v_id] = [s0, s1, s2, s3, s4]
+            #elif t_element == 'S':
+                #c_, s0, s1, s2, s3, s4 = struct.unpack(STRUCT_FORMATS['S'], tmp)
+                #VOs[v_id] = [s0, s1, s2, s3, s4]
 
-            elif t_element == 'V':
-                c_, c_id, v_id = struct.unpack(STRUCT_FORMATS['V'], tmp)
-                V[c_id] = v_id
+            #elif t_element == 'V':
+                #c_, c_id, v_id = struct.unpack(STRUCT_FORMATS['V'], tmp)
+                #V[c_id] = v_id
 
-            elif t_element == 'C':
-                c_, v_id, c_id = struct.unpack(STRUCT_FORMATS['C'], tmp)
-                C[v_id] = c_id
+            #elif t_element == 'C':
+                #c_, v_id, c_id = struct.unpack(STRUCT_FORMATS['C'], tmp)
+                #C[v_id] = c_id
 
-            elif t_element == 'O':
-                c_, c_id, c_o = struct.unpack(STRUCT_FORMATS['O'], tmp)
-                O[c_id] = c_o
+            #elif t_element == 'O':
+                #c_, c_id, c_o = struct.unpack(STRUCT_FORMATS['O'], tmp)
+                #O[c_id] = c_o
                 
 
-        #for l in cluster:
-            #if l:
-                #if l[0] == 'v':
-                    #tmp = l.split()
-                    #v_id = int(tmp[1])
-                    #vertices[v_id] = [float(i) for i in tmp[2:]]
-                #elif l[0] == 'L':
-                    #tmp = l.split()
-                    #L[v_id] = [int(tmp[1]), int(tmp[2]), int(tmp[3])]
-                #elif l[0] == 'R':
-                    #tmp = l.split()
-                    #R[v_id] = [int(tmp[1]), int(tmp[2]), int(tmp[3])]
-                #elif l[0] == 'S':
-                    #tmp = l.split()
-                    #v_id = int(tmp[1])
-                    #VOs[v_id] = [int(e) for e in tmp[2::]]
+        ##for l in cluster:
+            ##if l:
+                ##if l[0] == 'v':
+                    ##tmp = l.split()
+                    ##v_id = int(tmp[1])
+                    ##vertices[v_id] = [float(i) for i in tmp[2:]]
+                ##elif l[0] == 'L':
+                    ##tmp = l.split()
+                    ##L[v_id] = [int(tmp[1]), int(tmp[2]), int(tmp[3])]
+                ##elif l[0] == 'R':
+                    ##tmp = l.split()
+                    ##R[v_id] = [int(tmp[1]), int(tmp[2]), int(tmp[3])]
+                ##elif l[0] == 'S':
+                    ##tmp = l.split()
+                    ##v_id = int(tmp[1])
+                    ##VOs[v_id] = [int(e) for e in tmp[2::]]
 
-                #elif l[0] == 'V':
-                    #tmp = l.split()
-                    #c_id = int(tmp[1])
-                    #v_id = int(tmp[2])
-                    #V[c_id] = v_id
-                #elif l[0] == 'C':
-                    #tmp = l.split()
-                    #v_id = int(tmp[1])
-                    #c_id = int(tmp[2])
-                    #C[v_id] = c_id
-                #elif l[0] == 'O':
-                    #tmp = l.split()
-                    #c_id = int(tmp[1])
-                    #c_o = int(tmp[2])
-                    #O[c_id] = c_o
+                ##elif l[0] == 'V':
+                    ##tmp = l.split()
+                    ##c_id = int(tmp[1])
+                    ##v_id = int(tmp[2])
+                    ##V[c_id] = v_id
+                ##elif l[0] == 'C':
+                    ##tmp = l.split()
+                    ##v_id = int(tmp[1])
+                    ##c_id = int(tmp[2])
+                    ##C[v_id] = c_id
+                ##elif l[0] == 'O':
+                    ##tmp = l.split()
+                    ##c_id = int(tmp[1])
+                    ##c_o = int(tmp[2])
+                    ##O[c_id] = c_o
         
-        #try:
-            #minv = min(vertices)
-            #maxv = max(vertices)
-        #except ValueError:
-            #minv = min(V)
-            #maxv = max(V)
+        ##try:
+            ##minv = min(vertices)
+            ##maxv = max(vertices)
+        ##except ValueError:
+            ##minv = min(V)
+            ##maxv = max(V)
 
-        #if minv == maxv:
-            #minv = min(V)
-            #maxv = max(V)
+        ##if minv == maxv:
+            ##minv = min(V)
+            ##maxv = max(V)
 
+        vertices, L, R, VOs, V, C, O = cluster_loader.cluster_loader(str_cluster)
 
         self.__vertices[cl] = vertices
         self.__L[cl] = L
@@ -328,7 +337,7 @@ class _DictGeomElem(object):
         self._clmrg.access += 1
         key = int(key)
         if self._name in ('V', 'O'):
-            #idx = bisect.bisect(self._clmrg.ic_keys, key)
+            #idx = bisect(self._clmrg.ic_keys, key)
             cl = self._clmrg.index_corners[str(key)]
             try:
                 e = self._elems[cl][key]
@@ -337,7 +346,7 @@ class _DictGeomElem(object):
                 self._clmrg.load_cluster(cl)
                 e = self._elems[cl][key]
         elif self._name == 'C':
-            #idx = bisect.bisect(self._clmrg.icv_keys, key)
+            #idx = bisect(self._clmrg.icv_keys, key)
             #cl = self._clmrg.index_corner_vertice[str(self._clmrg.icv_keys[idx] - 1)]
             cl = self._clmrg.index_corner_vertice[str(key)]
             try:
@@ -350,7 +359,7 @@ class _DictGeomElem(object):
             if key >= self._clmrg.mr:
                 cl = self._clmrg.index_isolated_vertices[str(key)]
             else:
-                idx = bisect.bisect(self._clmrg.iv_keys, key)
+                idx = bisect(self._clmrg.iv_keys, key)
                 cl = self._clmrg.index_vertices[str(self._clmrg.iv_keys[idx] - 1)]
             try:
                 e = self._elems[cl][key]
@@ -364,6 +373,7 @@ class _DictGeomElem(object):
                     print cl, key, self._name, self._clmrg.mr, idx
                     print self._clmrg.iv_keys
                     print self._clmrg.index_vertices
+                    print self._elems
                     sys.exit()
 
         self._clmrg.update_cluster_usage(cl)
@@ -375,7 +385,7 @@ class _DictGeomElem(object):
             if key >= self._clmrg.mr:
                 cl = self._clmrg.index_isolated_vertices[str(key)]
             else:
-                idx = bisect.bisect(self._clmrg.iv_keys, key)
+                idx = bisect(self._clmrg.iv_keys, key)
                 cl = self._clmrg.index_vertices[str(self._clmrg.iv_keys[idx] - 1)]
             self._elems[cl][key] = value
             self._clmrg.hits += 1
@@ -409,7 +419,7 @@ class _DictGeomElemVertexCluster(_DictGeomElem):
     def __getitem__(self, key):
         self._clmrg.access += 1
         key = int(key)
-        #idx = bisect.bisect(self._clmrg.icv_keys, key)
+        #idx = bisect(self._clmrg.icv_keys, key)
         #cl = self._clmrg.index_corner_vertice[str(self._clmrg.icv_keys[idx] - 1)]
         cl = self._clmrg.index_corner_vertice[str(key)]
         try:
@@ -423,30 +433,35 @@ class _DictGeomElemVertexCluster(_DictGeomElem):
 
 
 class _DictGeomElemVertex(_DictGeomElem):
+    @profile
     def __getitem__(self, key):
-        self._clmrg.access += 1
-        key = int(key)
+        _clmrg = self._clmrg
+        _clmrg.access += 1
+        #key = int(key)
+        s_key = str(key)
 
-        if key >= self._clmrg.mr:
-            cl = self._clmrg.index_isolated_vertices[str(key)]
+        if key >= _clmrg.mr:
+            cl = _clmrg.index_isolated_vertices[s_key]
         else:
-            idx = bisect.bisect(self._clmrg.iv_keys, key)
-            cl = self._clmrg.index_vertices[str(self._clmrg.iv_keys[idx] - 1)]
+            idx = bisect(_clmrg.iv_keys, key)
+            cl = _clmrg.index_vertices[str(_clmrg.iv_keys[idx] - 1)]
         try:
             e = self._elems[cl][key]
-            self._clmrg.hits += 1
+            _clmrg.hits += 1
         except KeyError:
-            self._clmrg.load_cluster(cl)
-            self._clmrg.colour = [i*255 for i in colorsys.hls_to_rgb(random.randint(0, 360), random.random(), random.random())]
+            _clmrg.load_cluster(cl)
+            _clmrg.colour = [i*255 for i in colorsys.hls_to_rgb(random.randint(0, 360), random.random(), random.random())]
             try:
                 e = self._elems[cl][key]
             except KeyError, err:
-                print cl, key, self._name, self._clmrg.mr, idx
-                print self._clmrg.iv_keys
-                print self._clmrg.index_vertices
+                print cl, key, self._name, _clmrg.mr, idx
+                print _clmrg.iv_keys
+                print _clmrg.index_vertices
+                print self._elems
+                print ">>>>>"
                 sys.exit()
 
-        self._clmrg.update_cluster_usage(cl)
+        _clmrg.update_cluster_usage(cl)
         return e
 
 
