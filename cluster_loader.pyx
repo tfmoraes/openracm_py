@@ -37,11 +37,11 @@ cdef struct struct_R:
 
 cdef struct struct_S:
     char c
+    long v_id
     long s0
     long s1
     long s2
     long s3
-    long s4
 
 cdef struct struct_V:
     char c
@@ -112,7 +112,7 @@ cpdef tuple cluster_loader(str cluster):
             #c_, s0, s1, s2, s3, s4 = struct.unpack(STRUCT_FORMATS['S'], tmp)
             #VOs[v_id] = [s0, s1, s2, s3, s4]
             memcpy(&tmp_S, tmp, sizeof(tmp_S))
-            VOs[tmp_v.v_id] = [tmp_S.s0, tmp_S.s1, tmp_S.s2, tmp_S.s3, tmp_S.s4]
+            VOs[tmp_S.v_id] = [tmp_S.s0, tmp_S.s1, tmp_S.s2, tmp_S.s3]
 
         elif t_element == 'V':
             #c_, c_id, v_id = struct.unpack(STRUCT_FORMATS['V'], tmp)
