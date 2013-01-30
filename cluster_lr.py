@@ -10,19 +10,21 @@ import random
 import signal
 import struct
 import sys
+import threading
+import time
 import types
 
 from bisect import bisect
 
 import numpy as np
 
-import cluster_loader
+from cluster_loader import cluster_loader
 import cy_corner_table
 import laced_ring
 import ply_reader
 import ply_writer
 
-STRUCT_FORMATS = {'v': 'cLddd',
+STRUCT_FORMATS = {'v': 'clddd',
                   'L': 'clll',
                   'R': 'clll',
                   'S': 'clllll',
@@ -32,7 +34,50 @@ STRUCT_FORMATS = {'v': 'cLddd',
                   'C': 'cll',
                  }
 
+RUNNING = 0
+
 STRUCT_SIZES = {key:struct.calcsize(f) for (key, f) in STRUCT_FORMATS.items()}
+
+class Ring:
+    def __init__(self, l):
+        self._data = l
+
+    def __repr__(self):
+        return repr(self._data)
+
+    def __len__(self):
+        return len(self._data)
+
+    def __getitem__(self, i):
+        return self._data[i]
+
+    def append(self, item):
+        self._data.append(item)
+
+    def insert(self, index, item):
+        self._data.insert(index, item)
+
+    def index(self, item):
+        return self._data.index(item)
+
+    def pop(self, item=None):
+        if item is None:
+            return self._data.pop()
+        return self._data.pop(item)
+
+    def turn(self):
+        last = self._data.pop(-1)
+        self._data.insert(0, last)
+
+    def rotate(self):
+        first = self._data.pop(0)
+        self._data.append(first)
+
+    def first(self):
+        return self._data[0]
+
+    def last(self):
+        return self._data[-1]
 
 def calculate_d(cllr, vi):
     t = 0
@@ -72,10 +117,43 @@ def random_access(cllr, n):
         #for vj in cllr.get_ring0(vi):
             #pass
 
+def access_vertex_from_files(cllr, f):
+    fv = open(f)
+    for vi in fv:
+        v = cllr.vertices[int(vi)]
+
+def lru(cl_usage):
+    k = min(cl_usage, key=lambda x: cl_usage[x]['timestamp'])
+    return k
+
+
+def lu(cl_usage):
+    k = min(cl_usage, key=lambda x: cl_usage[x]['access'])
+    return k
+
+
+def mru(cl_usage):
+    k = max(cl_usage, key=lambda x: cl_usage[x]['timestamp'])
+    return k
+
+
+def mu(cl_usage):
+    k = max(cl_usage, key=lambda x: cl_usage[x]['access'])
+    return k
+
+
+def randomized(cl_usage):
+    k = random.choice(cl_usage.keys())
+    return k
+
+
+def lrfu(cl_usage):
+    k = min(cl_usage, key=lambda x: cl_usage[x]['crf'])
+    return k
 
 
 class ClusterManager(object):
-    def __init__(self, filename, qsize, scd_policy, lbd=0.7, upd_cl_us=None):
+    def __init__(self, filename, qsize=10, scd_policy=lru, lbd=0.7, upd_cl_us=None):
         self.filename = filename
         self.scd_policy = scd_policy
         index_vertices_file = os.path.splitext(filename)[0] + '_v.hdr'
@@ -114,6 +192,8 @@ class ClusterManager(object):
 
         self.colour = 0
 
+        self.to_clean = None
+
         self.__vertices = {}
         self.__L = {}
         self.__R = {}
@@ -137,22 +217,51 @@ class ClusterManager(object):
 
         signal.signal(signal.SIGINT , lambda x, y: self.print_cluster_info())
 
+        self.wait = threading.Lock()
+        #threading.Thread(target=self._cleanup).start()
+
     def load_header(self):
         self.mr = int(self.cfile.readline().split(':')[1].strip())
         self.m = int(self.cfile.readline().split(':')[1].strip())
         self.number_triangles = int(self.cfile.readline().split(':')[1].strip())
 
+    def _cleanup(self):
+        while RUNNING:
+            if self.to_clean is not None:
+                self.wait.acquire()
+                k = self.to_clean
+                del self.cl_usage[k]
+                del self.__vertices[k]
+                del self.__L[k]
+                del self.__R[k]
+                del self.__VOs[k]
+                del self.__O[k]
+                del self.__V[k]
+                del self.__C[k]
+
+                self.last_removed = k
+
+                if k == self.last_loaded:
+                    self.wastings.append(k)
+
+                try:
+                    self._n_unload_clusters[k] += 1
+                except KeyError:
+                    self._n_unload_clusters[k] = 1
+
+                self.to_clean = None
+                self.wait.release()
+            time.sleep(0.001)
+
     #@profile
     def load_cluster(self, cl):
-        init_cluster, cluster_size, iface, eface = [int(i) for i in self.index_clusters[cl].split()]
-        self.cfile.seek(init_cluster)
-        str_cluster = self.cfile.read(cluster_size)
 
-        print cluster_size
-    
-        if len(self.cl_usage) == self.queue_size:
+        #self.wait.acquire()
+        if len(self.cl_usage) >= self.queue_size:
             #print "The queue is full"
-            k = self.scd_policy(self.cl_usage)
+            k = str(self.scd_policy(self.cl_usage))
+            self.to_clean = k
+        #self.wait.release()
             del self.cl_usage[k]
             del self.__vertices[k]
             del self.__L[k]
@@ -171,6 +280,10 @@ class ClusterManager(object):
                 self._n_unload_clusters[k] += 1
             except KeyError:
                 self._n_unload_clusters[k] = 1
+
+        init_cluster, cluster_size, iface, eface = [int(i) for i in self.index_clusters[cl].split()]
+        self.cfile.seek(init_cluster)
+        str_cluster = self.cfile.read(cluster_size)
 
         #vertices = {}
 
@@ -263,7 +376,7 @@ class ClusterManager(object):
             ##minv = min(V)
             ##maxv = max(V)
 
-        vertices, L, R, VOs, V, C, O = cluster_loader.cluster_loader(str_cluster)
+        vertices, L, R, VOs, V, C, O = cluster_loader(str_cluster)
 
         self.__vertices[cl] = vertices
         self.__L[cl] = L
@@ -281,7 +394,6 @@ class ClusterManager(object):
 
         self.last_loaded = cl
         if self.last_removed == cl:
-            print cl
             self.wastings.append(cl)
 
         self.misses += 1
@@ -316,6 +428,7 @@ class ClusterManager(object):
         sys.exit()
 
     def _update_cluster_usage(self, cl_key):
+        self.timestamp += 1
         try:
             self.cl_usage[cl_key]['timestamp'] = self.timestamp
             self.cl_usage[cl_key]['access'] += 1
@@ -433,7 +546,7 @@ class _DictGeomElemVertexCluster(_DictGeomElem):
 
 
 class _DictGeomElemVertex(_DictGeomElem):
-    @profile
+    #@profile
     def __getitem__(self, key):
         _clmrg = self._clmrg
         _clmrg.access += 1
@@ -507,7 +620,6 @@ def create_clusters(lr, cluster_size):
         vr = lr.L[v_id][0]
 
         if lr.L[v_id][2] or lr.R[v_id][2]:
-            print "S"
             clusters[n].append(('S', v_id, lr.VOs[v_id][0], lr.VOs[v_id][1], lr.VOs[v_id][2], lr.VOs[v_id][3])) 
 
             for c0 in lr.VOs[v_id]:
@@ -686,34 +798,6 @@ def save_clusters(lr, clusters, filename):
                                                              maxv)
 
 
-def lru(cl_usage):
-    k = min(cl_usage, key=lambda x: cl_usage[x]['timestamp'])
-    return k
-
-
-def lu(cl_usage):
-    k = min(cl_usage, key=lambda x: cl_usage[x]['access'])
-    return k
-
-
-def mru(cl_usage):
-    k = max(cl_usage, key=lambda x: cl_usage[x]['timestamp'])
-    return k
-
-
-def mu(cl_usage):
-    k = max(cl_usage, key=lambda x: cl_usage[x]['access'])
-    return k
-
-
-def randomized(cl_usage):
-    k = random.choice(cl_usage.keys())
-    return k
-
-
-def lrfu(cl_usage):
-    k = min(cl_usage, key=lambda x: cl_usage[x]['crf'])
-    return k
 
 
 def update_cluster_usage_lrfu(clmrg, cl_key):
@@ -728,6 +812,269 @@ def update_cluster_usage_lrfu(clmrg, cl_key):
             clmrg.cl_usage[cl]['crf'] = 2 ** (-clmrg.lbd) * clmrg.cl_usage[cl]['crf']
 
 
+def update_cluster_usage_lrfu2(clmrg, cl_key):
+    f = lambda x, p: (1.0/p)**(x*clmrg.lbd)
+    clu = clmrg.cl_usage
+    try:
+        cluk = clu[cl_key]
+        cluk['crf'] = f(0, 2) + f(clmrg.timestamp - cluk['timestamp'], 2) * clu[cl_key]['crf']
+        cluk['timestamp'] = clmrg.timestamp
+    except:
+        clu[cl_key]= {'crf': f(0, 2), 
+                      'timestamp': clmrg.timestamp,}
+
+    clmrg.timestamp += 1
+
+
+class ArcItem(object):
+    def __init__(self):
+        self.value = -1
+        self.bit = 0
+        self.filter = "S"
+
+    def __cmp__(self, o):
+        try:
+            return self.value.__cmp__(o)
+        except TypeError:
+            return self.value.__cmp__(o.value)
+
+    def __repr__(self):
+        return "%s" % self.value
+
+
+class CarCache(object):
+    def __init__(self, cache_size):
+        self.cache_size = cache_size
+        self.T1 = Ring([])
+        self.T2 = Ring([])
+        self.B1 = Ring([])
+        self.B2 = Ring([])
+        self.p = 0
+
+    def update_usage(self, clmrg, cl):
+        clmrg.cl_usage[cl] = 1
+        cl = int(cl)
+        T1 = self.T1
+        T2 = self.T2
+        B1 = self.B1
+        B2 = self.B2
+        found = 1
+        try:
+            idx = T1.index(cl)
+            T1[idx].bit = 1
+        except ValueError:
+            try:
+                idx = T2.index(cl)
+                T2[idx].bit = 1
+            except ValueError:
+                found = 0
+
+        if not found:
+            if len(T1) + len(T2) == self.cache_size:
+                if (cl not in B1) and (cl not in B2) \
+                   and (len(T1) + len(B1) == self.cache_size):
+                    try:
+                        B1.pop()
+                    except IndexError:
+                        pass
+                elif (len(T1) + len(T2) + len(B1) + len(B2) == 2*self.cache_size) \
+                   and (cl not in B1) and (cl not in B2):
+                    try:
+                        B2.pop()
+                    except IndexError:
+                        pass
+
+            found = 1
+            try:
+                idx = B1.index(cl)
+                self.p = min(self.p + max(1, len(B2)/len(B1)), self.cache_size)
+                item = B1.pop(idx)
+                item.bit = 0
+                T2.append(item)
+                #self.p = min(self.p+max(1, len([i for i in B2 if i not in B1])),
+                #            self.cache_size)
+
+            except ValueError:
+                try:
+                    idx = B2.index(cl)
+                    self.p = max(self.p - max(1, len(B1)/len(B2)), 0)
+                    item = B2.pop(idx)
+                    item.bit = 0
+                    T2.append(item)
+                    #self.p = min(self.p+max(1, len([i for i in B1 if i not in B2])),
+                                 #self.cache_size)
+                except ValueError:
+                    item = ArcItem()
+                    item.value = cl
+                    item.bit = 0
+                    T1.append(item)
+
+    def replace(self, cl_usage):
+        T1 = self.T1
+        T2 = self.T2
+        B1 = self.B1
+        B2 = self.B2
+        p = self.p
+        found = 0
+        item = -1
+        while 1:
+            if len(T1) >= max(1, p):
+                head = T1.pop(0)
+                if not head.bit:
+                    found = 1
+                    item = head.value
+                    B1.insert(0, head)
+                else:
+                    head.bit = 0
+                    T2.append(head)
+            else:
+                head = T2.pop(0)
+                if not head.bit:
+                    found = 1
+                    item = head.value
+                    B2.insert(0, head)
+                else:
+                    head.bit = 0
+                    T2.append(head)
+            if found:
+                break
+
+        return item
+
+
+class CarTCache(object):
+    def __init__(self, cache_size):
+        self.cache_size = cache_size
+        self.T1 = Ring([])
+        self.T2 = Ring([])
+        self.B1 = Ring([])
+        self.B2 = Ring([])
+        self.p = 0
+        self.q = 0
+        self.ns = 0
+        self.nl = 0
+
+    def update_usage(self, clmrg, cl):
+        clmrg.cl_usage[cl] = 1
+        cl = int(cl)
+        T1 = self.T1
+        T2 = self.T2
+        B1 = self.B1
+        B2 = self.B2
+        found = 1
+        try:
+            idx = T1.index(cl)
+            T1[idx].bit = 1
+        except ValueError:
+            try:
+                idx = T2.index(cl)
+                T2[idx].bit = 1
+            except ValueError:
+                found = 0
+
+        if not found:
+            if len(T1) + len(T2) == self.cache_size:
+                if (cl not in B1) and (cl not in B2) \
+                   and (len(B1) + len(B2) == self.cache_size + 1) \
+                   and ((len(B1) > max(0, self.q)) or (len(B2) ==0)):
+
+                    try:
+                        B1.pop()
+                    except IndexError:
+                        pass
+
+                elif (cl not in B1) and (cl not in B2) \
+                   and (len(B1) + len(B2) == self.cache_size + 1):
+
+                    try:
+                        B2.pop()
+                    except IndexError:
+                        pass
+
+            found = 1
+
+            try:
+                idx = B1.index(cl)
+                self.p = min(self.p + max(1, self.ns/len(B1)), self.cache_size)
+                item = B1.pop(idx)
+                item.bit = 0
+                item.filter = "L"
+                T1.append(item)
+
+                self.nl += 1
+                #self.p = min(self.p+max(1, len([i for i in B2 if i not in B1])),
+                #            self.cache_size)
+
+            except ValueError:
+                try:
+                    idx = B2.index(cl)
+                    self.p = max(self.p - max(1, self.nl/len(B2)), 0)
+                    item = B2.pop(idx)
+                    item.bit = 0
+                    T1.append(item)
+
+                    self.nl += 1
+                    #self.p = min(self.p+max(1, len([i for i in B1 if i not in B2])),
+                                 #self.cache_size)
+
+                    if len(T2) + len(B2) + len(T1) - self.ns >= self.cache_size:
+                        self.q = min(self.q + 1, 2*self.cache_size - len(T1))
+
+                except ValueError:
+                    item = ArcItem()
+                    item.value = cl
+                    item.bit = 0
+                    item.filter = "S"
+                    T1.append(item)
+
+                    self.ns += 1
+
+    def replace(self, cl_usage):
+        T1 = self.T1
+        T2 = self.T2
+        B1 = self.B1
+        B2 = self.B2
+        p = self.p
+        found = 0
+        item = -1
+
+        while len(T2) and T2.first().bit:
+            head = T2.pop(0)
+            head.bit = 0
+            T1.append(head)
+
+            if len(T2) + len(B2) + len(T1) - self.ns >= self.cache_size:
+                self.q = min(self.q + 1, 2*self.cache_size - len(T1))
+
+        while len(T1) and (T1.first().filter == "L" or T1.first().bit == 1):
+            if T1.first().bit:
+                head = T1.pop(0)
+                head.bit = 0
+                T1.append(head)
+                if (len(T1) >= min(self.p + 1, len(B1))) and (head.filter == "S"):
+                    head.filter = "L"
+                    self.ns -= 1
+                    self.nl += 1
+            else:
+                head = T1.pop(0)
+                head.bit = 0
+                T2.append(head)
+                self.q = max(self.q - 1, self.cache_size - len(T1))
+
+        if len(T1) >= max(1, self.p):
+            head = T1.pop(0)
+            head.bit = 0
+            B1.insert(0, head)
+            self.ns -= 1
+        else:
+            head = T2.pop(0)
+            head.bit = 0
+            B2.insert(0, head)
+            self.nl -= 1
+
+        return head.value
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-c', help="create the clusters", action="store_true")
@@ -739,7 +1086,7 @@ def main():
     parser.add_argument('-s', default=1000, type=int)
     parser.add_argument('-l', default=0.7, type=float)
     parser.add_argument('-a', choices=("lru", "lu", "mru", "mu", "random",
-                                       "lrfu"), default="lru")
+                                       "lrfu", "lrfu2", "car", "cart"), default="lru")
     parser.add_argument('input')
     parser.add_argument('output')
 
@@ -750,7 +1097,10 @@ def main():
                   "mru": mru,
                   "mu": mu,
                   "random": randomized,
-                  "lrfu": lrfu}
+                  "lrfu": lrfu,
+                  "lrfu2": lrfu,
+                  "car": randomized
+                  }
 
     if args.c:
         vertices, faces = laced_ring.read_ply(args.input)
@@ -772,7 +1122,22 @@ def main():
         save_clusters(lr, clusters, args.output)
 
     elif args.o:
-        clmrg = ClusterManager(args.input, args.s, algorithms[args.a], args.l)
+        if args.a == 'lrfu':
+            clmrg = ClusterManager(args.input, args.s, algorithms[args.a], args.l,upd_cl_us=update_cluster_usage_lrfu)
+        elif args.a == 'lrfu2':
+            clmrg = ClusterManager(args.input, args.s, algorithms[args.a], args.l,upd_cl_us=update_cluster_usage_lrfu2)
+        elif args.a == 'cart':
+            cart = CarTCache(args.s)
+            clmrg = ClusterManager(args.input, args.s, cart.replace,
+                                   args.l,upd_cl_us=cart.update_usage)
+            cart.cache_size = clmrg.queue_size
+        elif args.a == 'car':
+            car = CarCache(args.s)
+            clmrg = ClusterManager(args.input, args.s, car.replace,
+                                   args.l,upd_cl_us=car.update_usage)
+            car.cache_size = clmrg.queue_size
+        else:
+            clmrg = ClusterManager(args.input, args.s, algorithms[args.a], args.l)
         cl_lr = ClusteredLacedRing(clmrg)
         #cl_lr.to_vertices_faces()
 
@@ -801,12 +1166,27 @@ def main():
     elif args.p:
         if args.a == 'lrfu':
             clmrg = ClusterManager(args.input, args.s, algorithms[args.a], args.l,upd_cl_us=update_cluster_usage_lrfu)
+        elif args.a == 'lrfu2':
+            clmrg = ClusterManager(args.input, args.s, algorithms[args.a], args.l,upd_cl_us=update_cluster_usage_lrfu2)
+        elif args.a == 'car':
+            car = CarCache(args.s)
+            clmrg = ClusterManager(args.input, args.s, car.replace,
+                                   args.l,upd_cl_us=car.update_usage)
+            car.cache_size = clmrg.queue_size
+        elif args.a == 'cart':
+            cart = CarTCache(args.s)
+            clmrg = ClusterManager(args.input, args.s, cart.replace,
+                                   args.l,upd_cl_us=cart.update_usage)
+            cart.cache_size = clmrg.queue_size
         else:
             clmrg = ClusterManager(args.input, args.s, algorithms[args.a], args.l)
         cl_lr = ClusteredLacedRing(clmrg)
         
         writer = ply_writer.PlyWriter(args.output)
         writer.from_laced_ring(cl_lr)
+
+        wr = ply_writer.PlyWriter('/tmp/ring.ply')
+        wr.from_laced_ring_save_ring(cl_lr)
 
         if args.d:
             clmrg.print_cluster_info()
@@ -817,12 +1197,27 @@ def main():
     elif args.r:
         if args.a == 'lrfu':
             clmrg = ClusterManager(args.input, args.s, algorithms[args.a], upd_cl_us=update_cluster_usage_lrfu)
+        elif args.a == 'lrfu2':
+            clmrg = ClusterManager(args.input, args.s, algorithms[args.a], args.l,upd_cl_us=update_cluster_usage_lrfu2)
+        elif args.a == 'car':
+            car = CarCache(args.s)
+            clmrg = ClusterManager(args.input, args.s, car.replace,
+                                   args.l,upd_cl_us=car.update_usage)
+            car.cache_size = clmrg.queue_size
+        elif args.a == 'cart':
+            cart = CarTCache(args.s)
+            clmrg = ClusterManager(args.input, args.s, cart.replace,
+                                   args.l,upd_cl_us=cart.update_usage)
+            cart.cache_size = clmrg.queue_size
         else:
             clmrg = ClusterManager(args.input, args.s, algorithms[args.a], args.l)
 
         cl_lr = ClusteredLacedRing(clmrg)
 
-        random_access(cl_lr, int(args.output))
+        if os.path.isfile(args.output):
+            access_vertex_from_files(cl_lr, args.output)
+        else:
+            random_access(cl_lr, int(args.output))
 
         if args.d:
             clmrg.print_cluster_info()
@@ -830,7 +1225,7 @@ def main():
         if args.m:
             clmrg.print_hm_info()
 
-    print STRUCT_SIZES
-
 if __name__ == '__main__':
+    RUNNING = 1
     main()
+    RUNNING = 0
