@@ -23,11 +23,17 @@ cdef class CornerTable:
         u = v1[0] - v0[0], v1[1] - v0[1], v1[2] - v0[2]
         v = v2[0] - v0[0], v2[1] - v0[1], v2[2] - v0[2]
         vn = numpy.cross(u, v)
+        vc = ((v0[0] + v1[0] + v2[0]) / 3.0,
+              (v0[1] + v1[1] + v2[1]) / 3.0,
+              (v0[2] + v1[2] + v2[2]) / 3.0)
+
+        vd = vc[0] + vn[0], vc[1] + vn[1], vc[2] + vn[2]
+
 
         d = numpy.array([[v0[0], v0[1], v0[2], 1],
                          [v1[0], v1[1], v1[2], 1],
                          [v2[0], v2[1], v2[2], 1],
-                         [vn[0], vn[1], vn[2], 1]]), 
+                         [vd[0], vd[1], vd[2], 1]])
 
         return numpy.linalg.det(d) > 0
 
@@ -36,12 +42,13 @@ cdef class CornerTable:
         cdef int i=0
         cdef nface=0
         for face in faces:
-            if self.is_clockwise(self.vertices[face[0]],
-                                 self.vertices[face[1]],
-                                 self.vertices[face[2]]):
-                vertices = face[0], face[1], face[2]
-            else:
-                vertices = face[2], face[1], face[0]
+            #if self.is_clockwise(self.vertices[face[0]],
+                                 #self.vertices[face[1]],
+                                 #self.vertices[face[2]]):
+                #vertices = face[0], face[1], face[2]
+                #print "Clockwise", nface
+            #else:
+            vertices = face[2], face[1], face[0]
             for vertex in vertices:
                 self.V.append(vertex)
                 self.C[vertex] = i

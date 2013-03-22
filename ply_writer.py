@@ -50,6 +50,17 @@ class PlyWriter(object):
                 vp = lr.vertex(cp)
                 ply_file.write('3 %d %d %d\n' % (v, vn, vp))
 
+    def from_laced_ring_save_ring(self, lr):
+        with file(self.filename, 'w') as ply_file:
+            self._write_header(ply_file, lr.mr,  lr.mr, has_colours=False)
+            for v in xrange(lr.mr):
+                ply_file.write(' '.join(['%f' % i for i in lr.vertices[v]]) + '\n')
+
+            for v in xrange(lr.mr):
+                vn = lr.next_vertex_ring(v)
+                vp = v
+                ply_file.write('3 %d %d %d\n' % (v, vn, vp))
+
 
     def from_faces_vertices_list(self, faces, vertices, colours=None):
         with file(self.filename, 'w') as ply_file:

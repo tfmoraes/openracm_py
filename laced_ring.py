@@ -4,6 +4,7 @@ import math
 import random
 import sys
 import time
+import tempfile
 
 import ply_reader
 import cy_corner_table
@@ -11,6 +12,8 @@ import ply_writer
 import colour_clusters
 
 import copy
+
+import numpy as np
 
 class DefaultDict(dict):
     """Dictionary with a default value for unknown keys."""
@@ -233,13 +236,22 @@ class LacedRing(object):
         v1 = edge_ring.edges[v0]
         vs = v0
         i = 0
-        map_ct_lr = {}
-        map_lr_ct = {}
+        map_ct_lr = np.memmap(tempfile.mktemp(), dtype='int32', mode='w+',
+                              shape=(len(ct.vertices),)) 
 
+        map_lr_ct = np.memmap(tempfile.mktemp(), dtype='int32', mode='w+',
+                              shape=(len(ct.vertices),))
+
+        map_ct_lr[:] = -1
+        map_lr_ct[:] = -1
+
+        me = max(edge_ring.edges)
         while 1:
             self.vertices.append(ct.vertices[v0])
             map_ct_lr[v0] = i
             map_lr_ct[i] = v0
+
+            print i, v0, vs, map_lr_ct.shape, me
 
             i += 1
             v0 = v1
@@ -252,7 +264,10 @@ class LacedRing(object):
         self.mr = i
         j = 0
         for v in xrange(len(ct.vertices)):
-            if v not in map_ct_lr:
+            # Provavelmente o problema do keyerror com o buddha esta
+            # relacionado com esse if 
+            #if v not in map_ct_lr:
+            if map_ct_lr[v] == -1:
                 self.vertices.append(ct.vertices[v])
                 map_ct_lr[v] = i
                 map_lr_ct[i] = v

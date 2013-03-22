@@ -1,3 +1,13 @@
-*.swp
+*.hg
+*.log
 *.pyc
-.DS_Store
+*.swn
+*.swo
+*.swp
+*.out
+*.pyprof
+*.o
+*.so
+*.lprof
+*.*~
+*.prof

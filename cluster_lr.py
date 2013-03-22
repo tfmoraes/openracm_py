@@ -1,11 +1,14 @@
 import argparse
 import bisect
 import bsddb
+import collections
 import colorsys
+import copy
 import io
 import math
 import mmap
 import os
+import cPickle
 import random
 import signal
 import struct
@@ -23,6 +26,8 @@ import cy_corner_table
 import laced_ring
 import ply_reader
 import ply_writer
+
+from sarc_cache import SarcCache
 
 STRUCT_FORMATS = {'v': 'clddd',
                   'L': 'clll',
@@ -153,7 +158,8 @@ def lrfu(cl_usage):
 
 
 class ClusterManager(object):
-    def __init__(self, filename, qsize=10, scd_policy=lru, lbd=0.7, upd_cl_us=None):
+    def __init__(self, filename, qsize=10, scd_policy=lru, lbd=0.7,
+                 upd_cl_us=None, load_cluster=None):
         self.filename = filename
         self.scd_policy = scd_policy
         index_vertices_file = os.path.splitext(filename)[0] + '_v.hdr'
@@ -161,11 +167,16 @@ class ClusterManager(object):
         index_corner_file = os.path.splitext(filename)[0] + '_c.hdr'
         index_corner_vertice_file = os.path.splitext(filename)[0] + '_cv.hdr'
         index_clusters_file = os.path.splitext(filename)[0] + '_cl.hdr'
+        map_cluster_dependency_fname = os.path.splitext(filename)[0] + '.map'
         self.index_vertices = bsddb.btopen(index_vertices_file)
         self.index_isolated_vertices = bsddb.btopen(index_isolated_vertices_file)
         self.index_corners = bsddb.btopen(index_corner_file)
         self.index_corner_vertice = bsddb.btopen(index_corner_vertice_file)
         self.index_clusters = bsddb.btopen(index_clusters_file)
+
+        map_cluster_dependency_file = open(map_cluster_dependency_fname, 'r+b')
+        self.map_cluster_dependency = cPickle.load(map_cluster_dependency_file)
+        map_cluster_dependency_file.close()
 
         self.iv_keys = sorted([int(i) + 1 for i in self.index_vertices.keys()])
         self.ic_keys = sorted([int(i) + 1 for i in self.index_corners.keys()])
@@ -194,26 +205,32 @@ class ClusterManager(object):
 
         self.to_clean = None
 
-        self.__vertices = {}
-        self.__L = {}
-        self.__R = {}
-        self.__O = {}
-        self.__V = {}
-        self.__C = {}
-        self.__VOs = {}
+        self._vertices = {}
+        self._L = {}
+        self._R = {}
+        self._O = {}
+        self._V = {}
+        self._C = {}
+        self._VOs = {}
 
-        self.vertices = _DictGeomElemVertex(self, 'vertices', self.__vertices)
-        self.L = _DictGeomElemVertex(self, 'L', self.__L)
-        self.R = _DictGeomElemVertex(self, 'R', self.__R)
-        self.O = _DictGeomElemCorners(self, 'O', self.__O)
-        self.V = _DictGeomElemCorners(self, 'V', self.__V)
-        self.C = _DictGeomElemVertexCluster(self, 'C', self.__C)
-        self.VOs = _DictGeomElemVertex(self, 'VOs', self.__VOs)
+        self.vertices = _DictGeomElemVertex(self, 'vertices', self._vertices)
+        self.L = _DictGeomElemVertex(self, 'L', self._L)
+        self.R = _DictGeomElemVertex(self, 'R', self._R)
+        self.O = _DictGeomElemCorners(self, 'O', self._O)
+        self.V = _DictGeomElemCorners(self, 'V', self._V)
+        self.C = _DictGeomElemVertexCluster(self, 'C', self._C)
+        self.VOs = _DictGeomElemVertex(self, 'VOs', self._VOs)
 
         if upd_cl_us is None:
             self.update_cluster_usage = self._update_cluster_usage
         else:
             self.update_cluster_usage = types.MethodType(upd_cl_us, self)
+
+        if load_cluster is None:
+            self.load_cluster = self._load_cluster
+        else:
+            self.load_cluster = lambda cl: load_cluster(self, cl)
+
 
         signal.signal(signal.SIGINT , lambda x, y: self.print_cluster_info())
 
@@ -231,13 +248,13 @@ class ClusterManager(object):
                 self.wait.acquire()
                 k = self.to_clean
                 del self.cl_usage[k]
-                del self.__vertices[k]
-                del self.__L[k]
-                del self.__R[k]
-                del self.__VOs[k]
-                del self.__O[k]
-                del self.__V[k]
-                del self.__C[k]
+                del self._vertices[k]
+                del self._L[k]
+                del self._R[k]
+                del self._VOs[k]
+                del self._O[k]
+                del self._V[k]
+                del self._C[k]
 
                 self.last_removed = k
 
@@ -254,7 +271,7 @@ class ClusterManager(object):
             time.sleep(0.001)
 
     #@profile
-    def load_cluster(self, cl):
+    def _load_cluster(self, cl):
 
         #self.wait.acquire()
         if len(self.cl_usage) >= self.queue_size:
@@ -263,13 +280,13 @@ class ClusterManager(object):
             self.to_clean = k
         #self.wait.release()
             del self.cl_usage[k]
-            del self.__vertices[k]
-            del self.__L[k]
-            del self.__R[k]
-            del self.__VOs[k]
-            del self.__O[k]
-            del self.__V[k]
-            del self.__C[k]
+            del self._vertices[k]
+            del self._L[k]
+            del self._R[k]
+            del self._VOs[k]
+            del self._O[k]
+            del self._V[k]
+            del self._C[k]
 
             self.last_removed = k
 
@@ -378,13 +395,13 @@ class ClusterManager(object):
 
         vertices, L, R, VOs, V, C, O = cluster_loader(str_cluster)
 
-        self.__vertices[cl] = vertices
-        self.__L[cl] = L
-        self.__R[cl] = R
-        self.__VOs[cl] = VOs
-        self.__V[cl] = V
-        self.__C[cl] = C
-        self.__O[cl] = O
+        self._vertices[cl] = vertices
+        self._L[cl] = L
+        self._R[cl] = R
+        self._VOs[cl] = VOs
+        self._V[cl] = V
+        self._C[cl] = C
+        self._O[cl] = O
 
         try:
             self._n_load_clusters[cl] += 1
@@ -568,9 +585,10 @@ class _DictGeomElemVertex(_DictGeomElem):
                 e = self._elems[cl][key]
             except KeyError, err:
                 print cl, key, self._name, _clmrg.mr, idx
-                print _clmrg.iv_keys
-                print _clmrg.index_vertices
-                print self._elems
+                print type(cl), type(key)
+                #print _clmrg.iv_keys
+                #print _clmrg.index_vertices
+                print self._elems.keys()
                 print ">>>>>"
                 sys.exit()
 
@@ -732,7 +750,7 @@ def create_clusters(lr, cluster_size):
 
     return clusters
 
-def save_clusters(lr, clusters, filename):
+def save_clusters(lr, clusters, csize, filename):
     with file(filename, 'w') as cfile:
         # indexes
         index_vertices_file = os.path.splitext(filename)[0] + '_v.hdr'
@@ -740,11 +758,13 @@ def save_clusters(lr, clusters, filename):
         index_clusters_file = os.path.splitext(filename)[0] + '_cl.hdr'
         index_corner_file = os.path.splitext(filename)[0] + '_c.hdr'
         index_corner_vertice_file = os.path.splitext(filename)[0] + '_cv.hdr'
+        map_cluster_dependency_fname = os.path.splitext(filename)[0] + '.map'
         index_vertices = bsddb.btopen(index_vertices_file)
         index_isolated_vertices = bsddb.btopen(index_isolated_vertices_file)
         index_corners = bsddb.btopen(index_corner_file)
         index_corner_vertice = bsddb.btopen(index_corner_vertice_file)
         index_clusters = bsddb.btopen(index_clusters_file)
+        map_cluster_dependency = {}
 
         cfile.write("edge vertex: %d\n" % lr.mr)
         cfile.write("vertex: %d\n" % lr.m)
@@ -773,6 +793,15 @@ def save_clusters(lr, clusters, filename):
                     #mincv = min(elem[1], mincv)
                     index_corner_vertice[str(elem[1])] = str(i)
 
+                elif elem[0] in ('L', 'R'):
+                    print ">>>", elem[1], csize, i
+                    if elem[1] / csize != i:
+                        try:
+                            map_cluster_dependency[i].add(elem[1] / csize)
+                        except KeyError:
+                            map_cluster_dependency[i] = set((elem[1] / csize,))
+
+
                 #cfile.write(" ".join([str(e) for e in elem]) + "\n")
                 try:
                     cfile.write(struct.pack(STRUCT_FORMATS[elem[0]], *elem))
@@ -796,6 +825,12 @@ def save_clusters(lr, clusters, filename):
                                                              cluster_size,
                                                              minv,
                                                              maxv)
+
+        # Saving map_cluster_depency as a dict in a cPickle
+        map_cluster_dependency_file = open(map_cluster_dependency_fname, 'w+b')
+        cPickle.dump(map_cluster_dependency, map_cluster_dependency_file)
+        map_cluster_dependency_file.flush()
+        map_cluster_dependency_file.close()
 
 
 
@@ -841,6 +876,595 @@ class ArcItem(object):
     def __repr__(self):
         return "%s" % self.value
 
+
+class MCItem(object):
+    def __init__(self):
+        self.value = -1
+        self.bit = 0
+
+    def __cmp__(self, o):
+        try:
+            return self.value.__cmp__(o)
+        except TypeError:
+            return self.value.__cmp__(o.value)
+
+    def __repr__(self):
+        return "%s" % self.value
+
+class MeshStrideCache(object):
+    def __init__(self, cache_size, size_pf):
+        self.cache_size = cache_size
+        self.size_pf = size_pf
+        self.timestamp = 0
+        self.cl_usage = {}
+        self.C1 = Ring([])
+        self.C2 = {}
+
+    def update_usage(self, clmrg, cl):
+        clmrg.cl_usage[cl] = 1
+        cl = int(cl)
+        self.timestamp += 1
+        C1 = self.C1
+        C2 = self.C2
+        try:
+            idx = C1.index(cl)
+            C1[idx].bit = 1
+        except ValueError:
+            try:
+                C2[cl]['timestamp'] = self.timestamp
+            except KeyError:
+                C2[cl] = {'timestamp': self.timestamp,}
+
+    def replace(self, cl_usage):
+        C2 = self.C2
+        try:
+            k = min(C2, key=lambda x: C2[x]['timestamp'])
+        except ValueError:
+            print C2
+            print self.cache_size
+            sys.exit()
+        return k
+
+    def replace_prefetch(self, pf):
+        C1 = self.C1
+        if len(pf) > self.size_pf:
+            k = []
+            while C1:
+                item = C1.pop(0)
+                k.append(item)
+            return k
+        elif len(pf) + len(C1) > self.size_pf:
+            s = len(pf) + len(C1) - self.size_pf
+            t = 0
+            k = []
+
+            while t < s:
+                item = C1.pop(0)
+                if not item.bit:
+                    k.append(item)
+                    t += 1
+                else:
+                    item.bit = 0
+                    C1.append(item)
+            return k
+        else:
+            return []
+    
+    def load_cluster(self, clmrg, cl):
+        #self.wait.acquire()
+        if len(self.C2) >= self.cache_size:
+            #print "The queue is full"
+            k = str(clmrg.scd_policy(self.cl_usage))
+            clmrg.to_clean = k
+        #self.wait.release()
+            try:
+                del clmrg.cl_usage[k]
+                del self.C2[int(k)]
+            except KeyError, e:
+                print "======================================="
+                print k
+                print e
+                print clmrg.cl_usage.keys()
+                print clmrg._vertices.keys()
+                print self.C2
+                print "======================================="
+                sys.exit()
+            
+            del clmrg._vertices[k]
+            del clmrg._L[k]
+            del clmrg._R[k]
+            del clmrg._VOs[k]
+            del clmrg._O[k]
+            del clmrg._V[k]
+            del clmrg._C[k]
+            
+
+            clmrg.last_removed = k
+
+            if k == clmrg.last_loaded:
+                clmrg.wastings.append(k)
+
+            try:
+                clmrg._n_unload_clusters[k] += 1
+            except KeyError:
+                clmrg._n_unload_clusters[k] = 1
+
+
+        icl = int(cl)
+        
+        if icl in clmrg.map_cluster_dependency:
+            deps = clmrg.map_cluster_dependency[icl]
+            dists = {i-icl: i for i in deps}
+            load = [icl]
+            ldps = []
+            for i in xrange(-1, -len(dists), -1):
+                if i not in dists:
+                    break
+                load.append(dists[i])
+                ldps.append(dists[i])
+
+            for i in xrange(1, len(dists)):
+                if i not in dists:
+                    break
+                load.append(dists[i])
+                ldps.append(dists[i])
+    
+            
+            load.sort()
+
+            if len(load) > 1:
+                init_cluster0, cluster_size0, iface0, eface0 = [int(i) for i in
+                                                                clmrg.index_clusters[str(load[0])].split()]
+                init_cluster1, cluster_size1, iface1, eface1 = [int(i) for i in
+                                                                clmrg.index_clusters[str(load[-1])].split()]
+                clmrg.cfile.seek(init_cluster0)
+                str_cluster = clmrg.cfile.read((init_cluster1 - init_cluster0) + cluster_size1)
+            else:
+                init_cluster, cluster_size, iface, eface = [int(i) for i in clmrg.index_clusters[cl].split()]
+                clmrg.cfile.seek(init_cluster)
+                str_cluster = clmrg.cfile.read(cluster_size)
+
+            to_replace = self.replace_prefetch(ldps)
+            for r in to_replace:
+                r = str(r.value)
+                del clmrg._vertices[r]
+                del clmrg._L[r]
+                del clmrg._R[r]
+                del clmrg._VOs[r]
+                del clmrg._O[r]
+                del clmrg._V[r]
+                del clmrg._C[r]
+
+            ldps = []
+            init = 0
+            for c in load:
+                str_c = str(c)
+                init_cluster, cluster_size, iface, eface = [int(i) for i in
+                                                            clmrg.index_clusters[str_c].split()]
+                scluster = str_cluster[init: init + cluster_size]
+                init += cluster_size
+
+                vertices, L, R, VOs, V, C, O = cluster_loader(scluster)
+
+
+                if str_c not in clmrg._L:
+                    clmrg._vertices[str_c] = vertices
+                    clmrg._L[str_c] = L
+                    clmrg._R[str_c] = R
+                    clmrg._VOs[str_c] = VOs
+                    clmrg._V[str_c] = V
+                    clmrg._C[str_c] = C
+                    clmrg._O[str_c] = O
+
+                    if c != icl:
+                        item = MCItem()
+                        item.value = c
+                        item.bit = 0
+
+                        self.C1.append(item)
+
+        else:
+            init_cluster, cluster_size, iface, eface = [int(i) for i in clmrg.index_clusters[cl].split()]
+            clmrg.cfile.seek(init_cluster)
+            str_cluster = clmrg.cfile.read(cluster_size)
+
+            vertices, L, R, VOs, V, C, O = cluster_loader(str_cluster)
+
+            clmrg._vertices[cl] = vertices
+            clmrg._L[cl] = L
+            clmrg._R[cl] = R
+            clmrg._VOs[cl] = VOs
+            clmrg._V[cl] = V
+            clmrg._C[cl] = C
+            clmrg._O[cl] = O
+
+        try:
+            clmrg._n_load_clusters[cl] += 1
+        except KeyError:
+            clmrg._n_load_clusters[cl] = 1
+            clmrg._n_unload_clusters[cl] = 0
+
+        clmrg.last_loaded = cl
+        if clmrg.last_removed == cl:
+            clmrg.wastings.append(cl)
+
+        clmrg.misses += 1
+
+        if int(cl) in clmrg.map_cluster_dependency:
+            dps = clmrg.map_cluster_dependency[int(cl)]
+            ldps = []
+            for dp in dps:
+                dp = str(dp)
+                if dp not in clmrg._L:
+                    ldps.append(dp)
+
+                if len(ldps) == self.size_pf:
+                    break
+            
+            to_replace = self.replace_prefetch(ldps)
+            cc1 = copy.deepcopy(self.C1)
+            for r in to_replace:
+                r = str(r.value)
+                try:
+                    del clmrg._vertices[r]
+                except KeyError, e:
+                    print "Vertices"
+                    print clmrg._vertices.keys()
+                    print clmrg._L.keys()
+                    print "C1", cc1
+                    print "C2", self.C2, clmrg.queue_size, self.cache_size, self.size_pf
+                    print "LDPS", ldps
+                    print "To Replace", to_replace
+                    print r, type(r)
+                    print e
+                    print ldps
+                    sys.exit()
+                del clmrg._L[r]
+                del clmrg._R[r]
+                del clmrg._VOs[r]
+                del clmrg._O[r]
+                del clmrg._V[r]
+                del clmrg._C[r]
+
+            for dp in ldps:
+                dp = str(dp)
+                init_cluster, cluster_size, iface, eface = [int(i) for i in clmrg.index_clusters[dp].split()]
+                clmrg.cfile.seek(init_cluster)
+                str_cluster = clmrg.cfile.read(cluster_size)
+
+                vertices, L, R, VOs, V, C, O = cluster_loader(str_cluster)
+
+                clmrg._vertices[dp] = vertices
+                clmrg._L[dp] = L
+                clmrg._R[dp] = R
+                clmrg._VOs[dp] = VOs
+                clmrg._V[dp] = V
+                clmrg._C[dp] = C
+                clmrg._O[dp] = O
+
+                item = MCItem()
+                item.value = int(dp)
+                item.bit = 0
+
+                self.C1.append(item)
+
+
+class MeshCache(object):
+    def __init__(self, cache_size, size_pf):
+        self.cache_size = cache_size
+        self.size_pf = size_pf
+        self.timestamp = 0
+        self.cl_usage = {}
+        self.C1 = Ring([])
+        self.C2 = {}
+
+    def update_usage(self, clmrg, cl):
+        clmrg.cl_usage[cl] = 1
+        cl = int(cl)
+        self.timestamp += 1
+        C1 = self.C1
+        C2 = self.C2
+        try:
+            idx = C1.index(cl)
+            C1[idx].bit = 1
+        except ValueError:
+            try:
+                C2[cl]['timestamp'] = self.timestamp
+            except KeyError:
+                C2[cl] = {'timestamp': self.timestamp,}
+
+    def replace(self, cl_usage):
+        C2 = self.C2
+        try:
+            k = min(C2, key=lambda x: C2[x]['timestamp'])
+        except ValueError:
+            print C2
+            print self.cache_size
+            sys.exit()
+        return k
+
+    def replace_prefetch(self, pf):
+        C1 = self.C1
+        if len(pf) > self.size_pf:
+            k = []
+            while C1:
+                item = C1.pop(0)
+                k.append(item)
+            return k
+        elif len(pf) + len(C1) > self.size_pf:
+            s = len(pf) + len(C1) - self.size_pf
+            t = 0
+            k = []
+
+            while t < s:
+                item = C1.pop(0)
+                if not item.bit:
+                    k.append(item)
+                    t += 1
+                else:
+                    item.bit = 0
+                    C1.append(item)
+            return k
+        else:
+            return []
+    
+    def load_cluster(self, clmrg, cl):
+        #self.wait.acquire()
+        if len(self.C2) >= self.cache_size:
+            #print "The queue is full"
+            k = str(clmrg.scd_policy(self.cl_usage))
+            clmrg.to_clean = k
+        #self.wait.release()
+            try:
+                del clmrg.cl_usage[k]
+                del self.C2[int(k)]
+            except KeyError, e:
+                print "======================================="
+                print k
+                print e
+                print clmrg.cl_usage.keys()
+                print clmrg._vertices.keys()
+                print self.C2
+                print "======================================="
+                sys.exit()
+            
+            del clmrg._vertices[k]
+            del clmrg._L[k]
+            del clmrg._R[k]
+            del clmrg._VOs[k]
+            del clmrg._O[k]
+            del clmrg._V[k]
+            del clmrg._C[k]
+            
+
+            clmrg.last_removed = k
+
+            if k == clmrg.last_loaded:
+                clmrg.wastings.append(k)
+
+            try:
+                clmrg._n_unload_clusters[k] += 1
+            except KeyError:
+                clmrg._n_unload_clusters[k] = 1
+
+        init_cluster, cluster_size, iface, eface = [int(i) for i in clmrg.index_clusters[cl].split()]
+        clmrg.cfile.seek(init_cluster)
+        str_cluster = clmrg.cfile.read(cluster_size)
+
+        vertices, L, R, VOs, V, C, O = cluster_loader(str_cluster)
+
+        clmrg._vertices[cl] = vertices
+        clmrg._L[cl] = L
+        clmrg._R[cl] = R
+        clmrg._VOs[cl] = VOs
+        clmrg._V[cl] = V
+        clmrg._C[cl] = C
+        clmrg._O[cl] = O
+
+        try:
+            clmrg._n_load_clusters[cl] += 1
+        except KeyError:
+            clmrg._n_load_clusters[cl] = 1
+            clmrg._n_unload_clusters[cl] = 0
+
+        clmrg.last_loaded = cl
+        if clmrg.last_removed == cl:
+            clmrg.wastings.append(cl)
+
+        clmrg.misses += 1
+
+        if int(cl) in clmrg.map_cluster_dependency:
+            dps = clmrg.map_cluster_dependency[int(cl)]
+            ldps = []
+            for dp in dps:
+                dp = str(dp)
+                if dp not in clmrg._L:
+                    ldps.append(dp)
+
+                if len(ldps) == self.size_pf:
+                    break
+            
+            to_replace = self.replace_prefetch(ldps)
+            cc1 = copy.deepcopy(self.C1)
+            for r in to_replace:
+                r = str(r.value)
+                try:
+                    del clmrg._vertices[r]
+                except KeyError, e:
+                    print "Vertices"
+                    print clmrg._vertices.keys()
+                    print clmrg._L.keys()
+                    print "C1", cc1
+                    print "C2", self.C2, clmrg.queue_size, self.cache_size, self.size_pf
+                    print "LDPS", ldps
+                    print "To Replace", to_replace
+                    print r, type(r)
+                    print e
+                    print ldps
+                    sys.exit()
+                del clmrg._L[r]
+                del clmrg._R[r]
+                del clmrg._VOs[r]
+                del clmrg._O[r]
+                del clmrg._V[r]
+                del clmrg._C[r]
+
+            for dp in ldps:
+                dp = str(dp)
+                init_cluster, cluster_size, iface, eface = [int(i) for i in clmrg.index_clusters[dp].split()]
+                clmrg.cfile.seek(init_cluster)
+                str_cluster = clmrg.cfile.read(cluster_size)
+
+                vertices, L, R, VOs, V, C, O = cluster_loader(str_cluster)
+
+                clmrg._vertices[dp] = vertices
+                clmrg._L[dp] = L
+                clmrg._R[dp] = R
+                clmrg._VOs[dp] = VOs
+                clmrg._V[dp] = V
+                clmrg._C[dp] = C
+                clmrg._O[dp] = O
+
+                item = MCItem()
+                item.value = int(dp)
+                item.bit = 0
+
+                self.C1.append(item)
+
+
+class LRUPFCach(object):
+    def __init__(self, cache_size):
+        self.cache_size = cache_size
+        self.lru = []
+
+    def update_usage(self, clmrg, cl):
+        cl = int(cl)
+        try:
+            i = self.lru.index(cl)
+        except ValueError, e:
+            print self.lru
+            print "ERROR", e
+            sys.exit()
+
+        self.lru.pop(i)
+        self.lru.insert(0, cl)
+
+    def replace(self, cl_usage):
+        return self.lru.pop()
+
+    def load_cluster(self, clmrg, cl):
+        icl = int(cl)
+        if len(self.lru) >= self.cache_size:
+            k = str(clmrg.scd_policy(None))
+            del clmrg._vertices[k]
+            del clmrg._L[k]
+            del clmrg._R[k]
+            del clmrg._VOs[k]
+            del clmrg._O[k]
+            del clmrg._V[k]
+            del clmrg._C[k]
+
+            clmrg.last_removed = k
+
+            if k == clmrg.last_loaded:
+                clmrg.wastings.append(k)
+
+            try:
+                clmrg._n_unload_clusters[k] += 1
+            except KeyError:
+                clmrg._n_unload_clusters[k] = 1
+
+        if icl in clmrg.map_cluster_dependency:
+            deps = clmrg.map_cluster_dependency[icl]
+            load = [icl, ]
+            for i in xrange(icl - 1, icl - len(deps), -1):
+                if i not in deps:
+                    break
+                load.append(i)
+
+            for i in xrange(icl + 1, icl + len(deps), 1):
+                if i not in deps:
+                    break
+                load.append(i)
+
+            load.sort()
+
+
+            if len(load) > 1:
+                init_cluster0, cluster_size0, iface0, eface0 = [int(i) for i in
+                                                                clmrg.index_clusters[str(load[0])].split()]
+                init_cluster1, cluster_size1, iface1, eface1 = [int(i) for i in
+                                                                clmrg.index_clusters[str(load[-1])].split()]
+                clmrg.cfile.seek(init_cluster0)
+                str_cluster = clmrg.cfile.read((init_cluster1 - init_cluster0) + cluster_size1)
+
+            else:
+                init_cluster, cluster_size, iface, eface = [int(i) for i in clmrg.index_clusters[cl].split()]
+                clmrg.cfile.seek(init_cluster)
+                str_cluster = clmrg.cfile.read(cluster_size)
+
+            init = 0
+            for c in load:
+                str_c = str(c)
+                init_cluster, cluster_size, iface, eface = [int(i) for i in
+                                                            clmrg.index_clusters[str_c].split()]
+                scluster = str_cluster[init: init + cluster_size]
+                init += cluster_size
+
+                vertices, L, R, VOs, V, C, O = cluster_loader(scluster)
+                
+                if str_c not in clmrg._L:
+                    clmrg._vertices[str_c] = vertices
+                    clmrg._L[str_c] = L
+                    clmrg._R[str_c] = R
+                    clmrg._VOs[str_c] = VOs
+                    clmrg._V[str_c] = V
+                    clmrg._C[str_c] = C
+                    clmrg._O[str_c] = O
+
+                    if c != icl:
+                        if len(self.lru) >= self.cache_size:
+                            k = str(clmrg.scd_policy(None))
+                            del clmrg._vertices[k]
+                            del clmrg._L[k]
+                            del clmrg._R[k]
+                            del clmrg._VOs[k]
+                            del clmrg._O[k]
+                            del clmrg._V[k]
+                            del clmrg._C[k]
+
+                        self.lru.append(c)
+                    else:
+                        self.lru.insert(0, c)
+
+        else:
+            init_cluster, cluster_size, iface, eface = [int(i) for i in clmrg.index_clusters[cl].split()]
+            clmrg.cfile.seek(init_cluster)
+            str_cluster = clmrg.cfile.read(cluster_size)
+
+            vertices, L, R, VOs, V, C, O = cluster_loader(str_cluster)
+
+            clmrg._vertices[cl] = vertices
+            clmrg._L[cl] = L
+            clmrg._R[cl] = R
+            clmrg._VOs[cl] = VOs
+            clmrg._V[cl] = V
+            clmrg._C[cl] = C
+            clmrg._O[cl] = O
+
+            self.lru.insert(0, icl)
+
+        try:
+            clmrg._n_load_clusters[cl] += 1
+        except KeyError:
+            clmrg._n_load_clusters[cl] = 1
+            clmrg._n_unload_clusters[cl] = 0
+
+        clmrg.last_loaded = cl
+        if clmrg.last_removed == cl:
+            clmrg.wastings.append(cl)
+
+        clmrg.misses += 1
 
 class CarCache(object):
     def __init__(self, cache_size):
@@ -1086,7 +1710,8 @@ def main():
     parser.add_argument('-s', default=1000, type=int)
     parser.add_argument('-l', default=0.7, type=float)
     parser.add_argument('-a', choices=("lru", "lu", "mru", "mu", "random",
-                                       "lrfu", "lrfu2", "car", "cart"), default="lru")
+                                       "lrfu", "lrfu2", "car", "cart", "pf",
+                                       "pf2", "lrupf", "sarc"), default="lru")
     parser.add_argument('input')
     parser.add_argument('output')
 
@@ -1099,7 +1724,7 @@ def main():
                   "random": randomized,
                   "lrfu": lrfu,
                   "lrfu2": lrfu,
-                  "car": randomized
+                  "car": randomized,
                   }
 
     if args.c:
@@ -1119,13 +1744,44 @@ def main():
 
         # clusters
         clusters = create_clusters(lr, args.s)
-        save_clusters(lr, clusters, args.output)
+        save_clusters(lr, clusters, args.s, args.output)
 
     elif args.o:
         if args.a == 'lrfu':
             clmrg = ClusterManager(args.input, args.s, algorithms[args.a], args.l,upd_cl_us=update_cluster_usage_lrfu)
         elif args.a == 'lrfu2':
             clmrg = ClusterManager(args.input, args.s, algorithms[args.a], args.l,upd_cl_us=update_cluster_usage_lrfu2)
+        elif args.a == 'pf':
+            mc = MeshCache(args.s, 0)
+            clmrg = ClusterManager(args.input, args.s, mc.replace,
+                                   args.l,upd_cl_us=mc.update_usage,
+                                   load_cluster=mc.load_cluster)
+            mc.cache_size = int(math.floor(clmrg.queue_size * 0.9))
+            mc.size_pf = int(math.floor(clmrg.queue_size * 0.1))
+            clmrg.queue_size = int(math.floor(clmrg.queue_size * 0.9))
+        elif args.a == 'pf2':
+            mc = MeshStrideCache(args.s, 0)
+            clmrg = ClusterManager(args.input, args.s, mc.replace,
+                                   args.l,upd_cl_us=mc.update_usage,
+                                   load_cluster=mc.load_cluster)
+            mc.cache_size = int(math.floor(clmrg.queue_size * 0.9))
+            mc.size_pf = int(math.floor(clmrg.queue_size * 0.1))
+            clmrg.queue_size = int(math.floor(clmrg.queue_size * 0.9))
+
+        elif args.a == 'lrupf':
+            c = LRUPFCach(args.s)
+            clmrg = ClusterManager(args.input, args.s, c.replace,
+                                   args.l,upd_cl_us=c.update_usage,
+                                   load_cluster=c.load_cluster)
+            c.cache_size = clmrg.queue_size
+
+        elif args.a == 'sarc':
+            c = SarcCache(args.s)
+            clmrg = ClusterManager(args.input, args.s, c.replace,
+                                   args.l,upd_cl_us=c.update_usage,
+                                   load_cluster=c.load_cluster)
+            c.cache_size = clmrg.queue_size
+
         elif args.a == 'cart':
             cart = CarTCache(args.s)
             clmrg = ClusterManager(args.input, args.s, cart.replace,
@@ -1173,6 +1829,34 @@ def main():
             clmrg = ClusterManager(args.input, args.s, car.replace,
                                    args.l,upd_cl_us=car.update_usage)
             car.cache_size = clmrg.queue_size
+        elif args.a == 'pf':
+            mc = MeshCache(args.s, 0)
+            clmrg = ClusterManager(args.input, args.s, mc.replace,
+                                   args.l,upd_cl_us=mc.update_usage,
+                                   load_cluster=mc.load_cluster)
+            mc.cache_size = int(math.floor(clmrg.queue_size * 0.9))
+            mc.size_pf = int(math.floor(clmrg.queue_size * 0.1))
+            clmrg.queue_size = int(math.floor(clmrg.queue_size * 0.9))
+        elif args.a == 'pf2':
+            mc = MeshStrideCache(args.s, 0)
+            clmrg = ClusterManager(args.input, args.s, mc.replace,
+                                   args.l,upd_cl_us=mc.update_usage,
+                                   load_cluster=mc.load_cluster)
+            mc.cache_size = int(math.floor(clmrg.queue_size * 0.9))
+            mc.size_pf = int(math.floor(clmrg.queue_size * 0.1))
+            clmrg.queue_size = int(math.floor(clmrg.queue_size * 0.9))
+        elif args.a == 'lrupf':
+            c = LRUPFCach(args.s)
+            clmrg = ClusterManager(args.input, args.s, c.replace,
+                                   args.l,upd_cl_us=c.update_usage,
+                                   load_cluster=c.load_cluster)
+            c.cache_size = clmrg.queue_size
+        elif args.a == 'sarc':
+            c = SarcCache(args.s)
+            clmrg = ClusterManager(args.input, args.s, c.replace,
+                                   args.l,upd_cl_us=c.update_usage,
+                                   load_cluster=c.load_cluster)
+            c.cache_size = clmrg.queue_size
         elif args.a == 'cart':
             cart = CarTCache(args.s)
             clmrg = ClusterManager(args.input, args.s, cart.replace,
@@ -1204,6 +1888,34 @@ def main():
             clmrg = ClusterManager(args.input, args.s, car.replace,
                                    args.l,upd_cl_us=car.update_usage)
             car.cache_size = clmrg.queue_size
+        elif args.a == 'pf':
+            mc = MeshCache(args.s, 0)
+            clmrg = ClusterManager(args.input, args.s, mc.replace,
+                                   args.l,upd_cl_us=mc.update_usage,
+                                   load_cluster=mc.load_cluster)
+            mc.cache_size = int(math.floor(clmrg.queue_size * 0.9))
+            mc.size_pf = int(math.floor(clmrg.queue_size * 0.1))
+            clmrg.queue_size = int(math.floor(clmrg.queue_size * 0.9))
+        elif args.a == 'pf2':
+            mc = MeshStrideCache(args.s, 0)
+            clmrg = ClusterManager(args.input, args.s, mc.replace,
+                                   args.l,upd_cl_us=mc.update_usage,
+                                   load_cluster=mc.load_cluster)
+            mc.cache_size = int(math.floor(clmrg.queue_size * 0.9))
+            mc.size_pf = int(math.floor(clmrg.queue_size * 0.1))
+            clmrg.queue_size = int(math.floor(clmrg.queue_size * 0.9))
+        elif args.a == 'lrupf':
+            c = LRUPFCach(args.s)
+            clmrg = ClusterManager(args.input, args.s, c.replace,
+                                   args.l,upd_cl_us=c.update_usage,
+                                   load_cluster=c.load_cluster)
+            c.cache_size = clmrg.queue_size
+        elif args.a == 'sarc':
+            c = SarcCache(args.s)
+            clmrg = ClusterManager(args.input, args.s, c.replace,
+                                   args.l,upd_cl_us=c.update_usage,
+                                   load_cluster=c.load_cluster)
+            c.cache_size = clmrg.queue_size
         elif args.a == 'cart':
             cart = CarTCache(args.s)
             clmrg = ClusterManager(args.input, args.s, cart.replace,
