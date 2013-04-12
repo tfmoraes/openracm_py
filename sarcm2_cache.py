@@ -7,6 +7,7 @@ RANDOM=1
 SEQ=2
 
 PPREF=0.5
+M=2
 
 class SarcItem(object):
     def __init__(self, value, timestamp):
@@ -26,10 +27,10 @@ class SarcItem(object):
     def __str__(self):
         return "%s" % self.value
 
-class SarcCache(object):
-    def __init__(self, cache_size):
+class SarcMesh2Cache(object):
+    def __init__(self, cache_size, threshold=2):
         self._cache_size = cache_size
-
+        
         self.to_bench = False
 
         self.crandom = []
@@ -42,8 +43,8 @@ class SarcCache(object):
         self.seqMiss = 0
         self.largeRatio = 20
 
-        self.seqcounter = {}
-        self.seqThreshold = 2
+        self.seqcounter = 0
+        self.seqThreshold = threshold
 
         self.dL = self._cache_size * 0.2
 
@@ -55,7 +56,6 @@ class SarcCache(object):
     def cache_size(self, value):
         self._cache_size = value
         self.dL = self._cache_size * 0.2
-
 
     def update_usage(self, clmrg, cl):
         cl = int(cl)
@@ -106,18 +106,18 @@ class SarcCache(object):
             self.cseq.insert(0, hit)
 
             if (cl - 1) in self.crandom or (cl - 1) in self.cseq:
-                if not self.seqcounter.get(cl - 1, 0):
-                    self.seqcounter[cl] = max(self.seqThreshold,
-                                          self.seqcounter.get(cl-1, 0) + 1)
+                #if not self.seqcounter.get(cl - 1, 0):
+                    #self.seqcounter[cl] = max(self.seqThreshold,
+                                          #self.seqcounter.get(cl-1, 0) + 1)
+                self.seqcounter += 1
             else:
-                self.seqcounter[cl] = 1
+                self.seqcounter -= 1
 
         self.timestamp += 1
 
     def replace(self, cl_usage, etype=RANDOM):
         LR = len(self.crandom)
         LS = len(self.cseq)
-
         if etype == SEQ and LS <= PPREF*self._cache_size:
             try:
                 k = self.crandom.pop()
@@ -130,7 +130,6 @@ class SarcCache(object):
             else:
                 t= 2
                 k = self.crandom.pop()
-
         else:
             if LS > self.desiredSeqListSize:
                 t= 3
@@ -185,24 +184,26 @@ class SarcCache(object):
             #except KeyError:
                 #clmrg._n_unload_clusters[k] = 1
 
-        if self.seqcounter.get(icl - 1, 0) == self.seqThreshold \
-           and ((icl -1) in self.cseq or (icl - 1) in self.crandom) \
+        if ((icl -1) in self.cseq or (icl - 1) in self.crandom) \
            and  icl in clmrg.map_cluster_dependency:
 
             deps = clmrg.map_cluster_dependency[icl]
-            load = [icl, ]
-            for i in xrange(icl - 1, icl - len(deps), -1):
-                if i not in deps:
-                    break
-                load.append(i)
+            self.seqMiss += 1
 
-            for i in xrange(icl + 1, icl + len(deps), 1):
-                if i not in deps:
-                    break
-                load.append(i)
+            load = [i for i in xrange(icl, icl + M)]
+            #for i in xrange(icl - 1, icl - len(deps), -1):
+                #if i not in deps:
+                    #break
+                #load.append(i)
+
+            #for i in xrange(icl + 1, icl + len(deps), 1):
+                #if i not in deps:
+                    #break
+                #load.append(i)
 
             load = load[:int(math.ceil(PPREF*self._cache_size))]
-            load.sort()
+            #load.sort()
+
 
             if not self.to_bench:
                 if len(load) > 1:
@@ -240,7 +241,6 @@ class SarcCache(object):
                     clmrg._C[str_c] = C
                     clmrg._O[str_c] = O
 
-
                     LR = len(self.crandom)
                     LS = len(self.cseq)
 
@@ -256,6 +256,7 @@ class SarcCache(object):
                         del clmrg._C[k]
 
                         to_adapt = 1
+                        self._adapt()
                         
                         if k == cl:
                             print "Load", load
@@ -264,8 +265,8 @@ class SarcCache(object):
                     sitem = SarcItem(c, self.timestamp)
                     self.cseq.insert(0, sitem)
 
-                    if to_adapt:
-                        self._adapt()
+                    #if to_adapt:
+                        #self._adapt()
 
                 else:
                     try:
@@ -282,8 +283,7 @@ class SarcCache(object):
 
                 self.timestamp += 1
 
-            self.seqMiss += 1
-            self.seqcounter[icl] = self.seqThreshold
+            self.seqcounter = self.seqThreshold
 
         else:
             if self.to_bench:
@@ -309,6 +309,7 @@ class SarcCache(object):
                 del clmrg._V[k]
                 del clmrg._C[k]
                 to_adapt = 1
+                self._adapt()
 
             clmrg._vertices[cl] = vertices
             clmrg._L[cl] = L
@@ -326,10 +327,10 @@ class SarcCache(object):
 
             self.timestamp += 1
             
-            if self.seqcounter.get(icl - 1, 0):
-                self.seqcounter[icl] = self.seqcounter.get(icl -1, 0) + 1
+            if self.seqcounter:
+                self.seqcounter += 1
             else:
-                self.seqcounter[icl] = 1
+                self.seqcounter = 1
 
         try:
             clmrg._n_load_clusters[cl] += 1

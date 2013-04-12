@@ -28,6 +28,8 @@ import ply_reader
 import ply_writer
 
 from sarc_cache import SarcCache
+from sarcm_cache import SarcMeshCache
+from sarcm2_cache import SarcMesh2Cache
 
 STRUCT_FORMATS = {'v': 'clddd',
                   'L': 'clll',
@@ -201,6 +203,8 @@ class ClusterManager(object):
         self.hits = 0
         self.access = 0
 
+        self.to_bench = False
+
         self.colour = 0
 
         self.to_clean = None
@@ -298,102 +302,14 @@ class ClusterManager(object):
             except KeyError:
                 self._n_unload_clusters[k] = 1
 
-        init_cluster, cluster_size, iface, eface = [int(i) for i in self.index_clusters[cl].split()]
-        self.cfile.seek(init_cluster)
-        str_cluster = self.cfile.read(cluster_size)
+        if self.to_bench:
+            vertices, L, R, VOs, V, C, O = range(7)
+        else:
+            init_cluster, cluster_size, iface, eface = [int(i) for i in self.index_clusters[cl].split()]
+            self.cfile.seek(init_cluster)
+            str_cluster = self.cfile.read(cluster_size)
 
-        #vertices = {}
-
-        #L = {}
-        #R = {}
-        #VOs = {}
-
-        #V = {}
-        #C = {}
-        #O = {}
-        #cluster = str_cluster
-        #init = 0
-        #cluster_size = len(cluster)
-        #while init != cluster_size:
-            #tmp = cluster[init: init + STRUCT_SIZES[cluster[init]]]
-            #init += STRUCT_SIZES[cluster[init]]
-            #t_element = tmp[0]
-            ##cluster = cluster[STRUCT_SIZES[cluster[0]]::]
-
-            #if t_element == 'v':
-                #c_, v_id, vx, vy, vz = struct.unpack(STRUCT_FORMATS['v'], tmp) 
-                #vertices[v_id] = [vx, vy, vz]
-
-            #elif t_element == 'L':
-                #c_, l0, l1, l2 = struct.unpack(STRUCT_FORMATS['L'], tmp) 
-                #L[v_id] = [l0, l1, l2]
-
-            #elif t_element == 'R':
-                #c_, r0, r1, r2 = struct.unpack(STRUCT_FORMATS['R'], tmp) 
-                #R[v_id] = [r0, r1, r2]
-
-            #elif t_element == 'S':
-                #c_, s0, s1, s2, s3, s4 = struct.unpack(STRUCT_FORMATS['S'], tmp)
-                #VOs[v_id] = [s0, s1, s2, s3, s4]
-
-            #elif t_element == 'V':
-                #c_, c_id, v_id = struct.unpack(STRUCT_FORMATS['V'], tmp)
-                #V[c_id] = v_id
-
-            #elif t_element == 'C':
-                #c_, v_id, c_id = struct.unpack(STRUCT_FORMATS['C'], tmp)
-                #C[v_id] = c_id
-
-            #elif t_element == 'O':
-                #c_, c_id, c_o = struct.unpack(STRUCT_FORMATS['O'], tmp)
-                #O[c_id] = c_o
-                
-
-        ##for l in cluster:
-            ##if l:
-                ##if l[0] == 'v':
-                    ##tmp = l.split()
-                    ##v_id = int(tmp[1])
-                    ##vertices[v_id] = [float(i) for i in tmp[2:]]
-                ##elif l[0] == 'L':
-                    ##tmp = l.split()
-                    ##L[v_id] = [int(tmp[1]), int(tmp[2]), int(tmp[3])]
-                ##elif l[0] == 'R':
-                    ##tmp = l.split()
-                    ##R[v_id] = [int(tmp[1]), int(tmp[2]), int(tmp[3])]
-                ##elif l[0] == 'S':
-                    ##tmp = l.split()
-                    ##v_id = int(tmp[1])
-                    ##VOs[v_id] = [int(e) for e in tmp[2::]]
-
-                ##elif l[0] == 'V':
-                    ##tmp = l.split()
-                    ##c_id = int(tmp[1])
-                    ##v_id = int(tmp[2])
-                    ##V[c_id] = v_id
-                ##elif l[0] == 'C':
-                    ##tmp = l.split()
-                    ##v_id = int(tmp[1])
-                    ##c_id = int(tmp[2])
-                    ##C[v_id] = c_id
-                ##elif l[0] == 'O':
-                    ##tmp = l.split()
-                    ##c_id = int(tmp[1])
-                    ##c_o = int(tmp[2])
-                    ##O[c_id] = c_o
-        
-        ##try:
-            ##minv = min(vertices)
-            ##maxv = max(vertices)
-        ##except ValueError:
-            ##minv = min(V)
-            ##maxv = max(V)
-
-        ##if minv == maxv:
-            ##minv = min(V)
-            ##maxv = max(V)
-
-        vertices, L, R, VOs, V, C, O = cluster_loader(str_cluster)
+            vertices, L, R, VOs, V, C, O = cluster_loader(str_cluster)
 
         self._vertices[cl] = vertices
         self._L[cl] = L
@@ -455,6 +371,21 @@ class ClusterManager(object):
 
     def print_hm_info(self):
         print self.queue_size, len(self.index_clusters), self.access, self.hits, self.misses, float(self.hits) / self.access
+        
+    def bench(self, filename):
+        self.to_bench = True
+        with open(filename) as f:
+            self.misses = 0
+            self.access = 0
+            for l in f:
+                cl = l.strip()
+                if cl:
+                    if cl not in self.cl_usage:
+                        self.load_cluster(cl)
+                    else:
+                        self.hits += 1
+                    self.update_cluster_usage(cl)
+                    self.access += 1
 
 
 class _DictGeomElem(object):
@@ -1704,6 +1635,7 @@ def main():
     parser.add_argument('-c', help="create the clusters", action="store_true")
     parser.add_argument('-o', help="open the clusters and runs taubin smoothing in it", action="store_true")
     parser.add_argument('-p', help="open the clusters and save it in ply format file",action="store_true")
+    parser.add_argument('-b', help="Only a bench",action="store_true")
     parser.add_argument('-r', help="open the clusters and access it in random way",action="store_true")
     parser.add_argument('-d', default=False, action="store_true", help="show stastic in the end")
     parser.add_argument('-m', default=False, action="store_true", help="show stastic in the end about hit and misses")
@@ -1711,7 +1643,7 @@ def main():
     parser.add_argument('-l', default=0.7, type=float)
     parser.add_argument('-a', choices=("lru", "lu", "mru", "mu", "random",
                                        "lrfu", "lrfu2", "car", "cart", "pf",
-                                       "pf2", "lrupf", "sarc"), default="lru")
+                                       "pf2", "lrupf", "sarc", "sarcm", "sarcm2"), default="lru")
     parser.add_argument('input')
     parser.add_argument('output')
 
@@ -1777,6 +1709,19 @@ def main():
 
         elif args.a == 'sarc':
             c = SarcCache(args.s)
+            clmrg = ClusterManager(args.input, args.s, c.replace,
+                                   args.l,upd_cl_us=c.update_usage,
+                                   load_cluster=c.load_cluster)
+            c.cache_size = clmrg.queue_size
+
+        elif args.a == 'sarcm':
+            c = SarcMeshCache(args.s, args.l)
+            clmrg = ClusterManager(args.input, args.s, c.replace,
+                                   args.l,upd_cl_us=c.update_usage,
+                                   load_cluster=c.load_cluster)
+            c.cache_size = clmrg.queue_size
+        elif args.a == 'sarcm2':
+            c = SarcMesh2Cache(args.s, args.l)
             clmrg = ClusterManager(args.input, args.s, c.replace,
                                    args.l,upd_cl_us=c.update_usage,
                                    load_cluster=c.load_cluster)
@@ -1857,6 +1802,20 @@ def main():
                                    args.l,upd_cl_us=c.update_usage,
                                    load_cluster=c.load_cluster)
             c.cache_size = clmrg.queue_size
+
+        elif args.a == 'sarcm':
+            c = SarcMeshCache(args.s, args.l)
+            clmrg = ClusterManager(args.input, args.s, c.replace,
+                                   args.l,upd_cl_us=c.update_usage,
+                                   load_cluster=c.load_cluster)
+            c.cache_size = clmrg.queue_size
+        elif args.a == 'sarcm2':
+            c = SarcMesh2Cache(args.s, args.l)
+            clmrg = ClusterManager(args.input, args.s, c.replace,
+                                   args.l,upd_cl_us=c.update_usage,
+                                   load_cluster=c.load_cluster)
+            c.cache_size = clmrg.queue_size
+
         elif args.a == 'cart':
             cart = CarTCache(args.s)
             clmrg = ClusterManager(args.input, args.s, cart.replace,
@@ -1916,6 +1875,20 @@ def main():
                                    args.l,upd_cl_us=c.update_usage,
                                    load_cluster=c.load_cluster)
             c.cache_size = clmrg.queue_size
+
+        elif args.a == 'sarcm':
+            c = SarcMeshCache(args.s, args.l)
+            clmrg = ClusterManager(args.input, args.s, c.replace,
+                                   args.l,upd_cl_us=c.update_usage,
+                                   load_cluster=c.load_cluster)
+            c.cache_size = clmrg.queue_size
+        elif args.a == 'sarcm2':
+            c = SarcMesh2Cache(args.s, args.l)
+            clmrg = ClusterManager(args.input, args.s, c.replace,
+                                   args.l,upd_cl_us=c.update_usage,
+                                   load_cluster=c.load_cluster)
+            c.cache_size = clmrg.queue_size
+
         elif args.a == 'cart':
             cart = CarTCache(args.s)
             clmrg = ClusterManager(args.input, args.s, cart.replace,
@@ -1931,6 +1904,39 @@ def main():
         else:
             random_access(cl_lr, int(args.output))
 
+        if args.d:
+            clmrg.print_cluster_info()
+
+        if args.m:
+            clmrg.print_hm_info()
+
+    elif args.b:
+        print args.output
+        if args.a == 'sarcm2':
+            c = SarcMesh2Cache(args.s, args.l)
+            clmrg = ClusterManager(args.input, args.s, c.replace,
+                                   args.l,upd_cl_us=c.update_usage,
+                                   load_cluster=c.load_cluster)
+            c.cache_size = clmrg.queue_size
+            c.bench(clmrg, args.output)
+        elif args.a == 'sarcm':
+            c = SarcMeshCache(args.s, args.l)
+            clmrg = ClusterManager(args.input, args.s, c.replace,
+                                   args.l,upd_cl_us=c.update_usage,
+                                   load_cluster=c.load_cluster)
+            c.cache_size = clmrg.queue_size
+            c.bench(clmrg, args.output)
+        elif args.a == 'sarc':
+            c = SarcCache(args.s)
+            clmrg = ClusterManager(args.input, args.s, c.replace,
+                                   args.l,upd_cl_us=c.update_usage,
+                                   load_cluster=c.load_cluster)
+            c.cache_size = clmrg.queue_size
+            c.bench(clmrg, args.output)
+        else:
+            clmrg = ClusterManager(args.input, args.s, algorithms[args.a], args.l)
+            cl_lr = ClusteredLacedRing(clmrg)
+            clmrg.bench(args.output)
         if args.d:
             clmrg.print_cluster_info()
 
